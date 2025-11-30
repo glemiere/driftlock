@@ -51,7 +51,6 @@
     "structure": "./validators/structure.md",
     "general": "./validators/general.md"
   },
-
   "formatters": {
     "plan": "./formatters/plan.md",
     "schema": "./schemas/plan.schema.json"

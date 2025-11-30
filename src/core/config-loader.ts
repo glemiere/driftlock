@@ -1,5 +1,5 @@
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, constants as fsConstants } from "fs";
 import defaultConfigJson from "../../config.default.json";
 
 export type AuditorConfig = {
@@ -28,9 +28,11 @@ type DriftlockConfigOverrides = {
   };
 };
 
+type RawConfigObject = Record<string, unknown>;
+
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+function isPlainObject(value: unknown): value is RawConfigObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
@@ -44,14 +46,12 @@ function deepMerge<T>(base: T, override: unknown): T {
   }
 
   if (isPlainObject(base) && isPlainObject(override)) {
-    const result: Record<string, unknown> = { ...base };
+    const result: RawConfigObject = { ...base };
+
     for (const [key, overrideValue] of Object.entries(override)) {
-      const baseValue = (base as Record<string, unknown>)[key];
-      if (baseValue === undefined) {
-        result[key] = overrideValue;
-      } else {
-        result[key] = deepMerge(baseValue, overrideValue);
-      }
+      const baseValue = (base as RawConfigObject)[key];
+      result[key] =
+        baseValue === undefined ? overrideValue : deepMerge(baseValue, overrideValue);
     }
 
     return result as T;
@@ -60,8 +60,9 @@ function deepMerge<T>(base: T, override: unknown): T {
   return override as T;
 }
 
-function ensureNoExtraTopLevelKeys(raw: Record<string, unknown>, source: string) {
+function ensureNoExtraTopLevelKeys(raw: RawConfigObject, source: string) {
   const allowedKeys = new Set(["$schema", "auditors", "validators", "formatters"]);
+
   for (const key of Object.keys(raw)) {
     if (!allowedKeys.has(key)) {
       throw new Error(
@@ -72,33 +73,33 @@ function ensureNoExtraTopLevelKeys(raw: Record<string, unknown>, source: string)
   }
 }
 
-function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
+function assertConfigRoot(raw: unknown, source: string): RawConfigObject {
   if (!isPlainObject(raw)) {
-    throw new Error("Default config must be a JSON object.");
+    throw new Error(`${source} config must be a JSON object.`);
   }
 
-  ensureNoExtraTopLevelKeys(raw, "Default");
+  ensureNoExtraTopLevelKeys(raw, source);
 
-  const auditorsRaw = raw.auditors as unknown;
-  const validatorsRaw = raw.validators as unknown;
-  const formattersRaw = raw.formatters as unknown;
+  return raw;
+}
 
-  if (!isPlainObject(auditorsRaw)) {
-    throw new Error('Default config "auditors" must be an object.');
+function getSectionObject(
+  root: RawConfigObject,
+  key: "auditors" | "validators" | "formatters",
+  source: string
+): RawConfigObject {
+  const section = root[key];
+
+  if (!isPlainObject(section)) {
+    throw new Error(`${
+      source === "Default" ? "Default" : "User"
+    } config "${key}" must be an object.`);
   }
 
-  if (!isPlainObject(validatorsRaw)) {
-    throw new Error('Default config "validators" must be an object.');
-  }
+  return section;
+}
 
-  if (!isPlainObject(formattersRaw)) {
-    throw new Error('Default config "formatters" must be an object.');
-  }
-
-  const auditorsObj = auditorsRaw as Record<string, unknown>;
-  const validatorsObj = validatorsRaw as Record<string, unknown>;
-  const formattersObj = formattersRaw as Record<string, unknown>;
-
+function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, AuditorConfig> {
   const auditors: Record<string, AuditorConfig> = {};
 
   for (const [name, value] of Object.entries(auditorsObj)) {
@@ -128,7 +129,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
       );
     }
 
-    if (!validatorsField.every((v) => typeof v === "string")) {
+    if (!validatorsField.every((value) => typeof value === "string")) {
       throw new Error(
         `Default config auditor "${name}.validators" must contain only strings.`
       );
@@ -141,6 +142,10 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     };
   }
 
+  return auditors;
+}
+
+function normalizeDefaultValidators(validatorsObj: RawConfigObject): Record<string, string> {
   const validators: Record<string, string> = {};
 
   for (const [name, value] of Object.entries(validatorsObj)) {
@@ -153,6 +158,10 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     validators[name] = path.resolve(PACKAGE_ROOT, value);
   }
 
+  return validators;
+}
+
+function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockConfig["formatters"] {
   const planPath = formattersObj.plan;
   const schemaPath = formattersObj.schema;
 
@@ -164,10 +173,22 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     throw new Error('Default config "formatters.schema" must be a string path.');
   }
 
-  const formatters = {
+  return {
     plan: path.resolve(PACKAGE_ROOT, planPath),
     schema: path.resolve(PACKAGE_ROOT, schemaPath),
   };
+}
+
+function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
+  const root = assertConfigRoot(raw, "Default");
+
+  const auditorsObj = getSectionObject(root, "auditors", "Default");
+  const validatorsObj = getSectionObject(root, "validators", "Default");
+  const formattersObj = getSectionObject(root, "formatters", "Default");
+
+  const auditors = normalizeDefaultAuditors(auditorsObj);
+  const validators = normalizeDefaultValidators(validatorsObj);
+  const formatters = normalizeDefaultFormatters(formattersObj);
 
   return {
     auditors,
@@ -176,168 +197,198 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   };
 }
 
-function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverrides {
-  if (!isPlainObject(raw)) {
-    throw new Error("User config must be a JSON object.");
+function buildUserAuditorOverrides(
+  auditorsRaw: unknown,
+  cwd: string
+): Record<string, AuditorConfigOverride> {
+  if (!isPlainObject(auditorsRaw)) {
+    throw new Error('User config "auditors" must be an object when provided.');
   }
 
-  ensureNoExtraTopLevelKeys(raw, "User");
+  const auditorsObj = auditorsRaw as RawConfigObject;
+  const overrides: Record<string, AuditorConfigOverride> = {};
 
-  const overrides: DriftlockConfigOverrides = {};
-
-  if (raw.auditors !== undefined) {
-    const auditorsRaw = raw.auditors as unknown;
-
-    if (!isPlainObject(auditorsRaw)) {
-      throw new Error('User config "auditors" must be an object when provided.');
+  for (const [name, value] of Object.entries(auditorsObj)) {
+    if (!isPlainObject(value)) {
+      throw new Error(`User config auditor "${name}" must be an object.`);
     }
 
-    const auditorsObj = auditorsRaw as Record<string, unknown>;
+    const auditorOverride: AuditorConfigOverride = {};
 
-    overrides.auditors = {};
-
-    for (const [name, value] of Object.entries(auditorsObj)) {
-      if (!isPlainObject(value)) {
-        throw new Error(`User config auditor "${name}" must be an object.`);
-      }
-
-      const auditorOverride: AuditorConfigOverride = {};
-
-      if ("enabled" in value) {
-        if (typeof value.enabled !== "boolean") {
-          throw new Error(
-            `User config auditor "${name}.enabled" must be a boolean.`
-          );
-        }
-
-        auditorOverride.enabled = value.enabled;
-      }
-
-      if ("path" in value) {
-        if (typeof value.path !== "string") {
-          throw new Error(
-            `User config auditor "${name}.path" must be a string.`
-          );
-        }
-
-        auditorOverride.path = path.resolve(cwd, value.path);
-      }
-
-      if ("validators" in value) {
-        if (!Array.isArray(value.validators)) {
-          throw new Error(
-            `User config auditor "${name}.validators" must be an array of strings.`
-          );
-        }
-
-        if (!value.validators.every((v) => typeof v === "string")) {
-          throw new Error(
-            `User config auditor "${name}.validators" must contain only strings.`
-          );
-        }
-
-        auditorOverride.validators = [...value.validators];
-      }
-
-      overrides.auditors[name] = auditorOverride;
-    }
-  }
-
-  if (raw.validators !== undefined) {
-    const validatorsRaw = raw.validators as unknown;
-
-    if (!isPlainObject(validatorsRaw)) {
-      throw new Error(
-        'User config "validators" must be an object mapping names to paths.'
-      );
-    }
-
-    const validatorsObj = validatorsRaw as Record<string, unknown>;
-
-    overrides.validators = {};
-
-    for (const [name, value] of Object.entries(validatorsObj)) {
-      if (typeof value !== "string") {
+    if ("enabled" in value) {
+      if (typeof value.enabled !== "boolean") {
         throw new Error(
-          `User config validator "${name}" must be a string path.`
+          `User config auditor "${name}.enabled" must be a boolean.`
         );
       }
 
-      overrides.validators[name] = path.resolve(cwd, value);
-    }
-  }
-
-  if (raw.formatters !== undefined) {
-    const formattersRaw = raw.formatters as unknown;
-
-    if (!isPlainObject(formattersRaw)) {
-      throw new Error('User config "formatters" must be an object when provided.');
+      auditorOverride.enabled = value.enabled;
     }
 
-    const formattersObj = formattersRaw as Record<string, unknown>;
-
-    const formattersOverride: DriftlockConfigOverrides["formatters"] = {};
-
-    if ("plan" in formattersObj) {
-      if (typeof formattersObj.plan !== "string") {
+    if ("path" in value) {
+      if (typeof value.path !== "string") {
         throw new Error(
-          'User config "formatters.plan" must be a string path when provided.'
+          `User config auditor "${name}.path" must be a string.`
         );
       }
 
-      formattersOverride.plan = path.resolve(cwd, formattersObj.plan);
+      auditorOverride.path = path.resolve(cwd, value.path);
     }
 
-    if ("schema" in formattersObj) {
-      if (typeof formattersObj.schema !== "string") {
+    if ("validators" in value) {
+      if (!Array.isArray(value.validators)) {
         throw new Error(
-          'User config "formatters.schema" must be a string path when provided.'
+          `User config auditor "${name}.validators" must be an array of strings.`
         );
       }
 
-      formattersOverride.schema = path.resolve(cwd, formattersObj.schema);
+      if (!value.validators.every((validator) => typeof validator === "string")) {
+        throw new Error(
+          `User config auditor "${name}.validators" must contain only strings.`
+        );
+      }
+
+      auditorOverride.validators = [...value.validators];
     }
 
-    overrides.formatters = formattersOverride;
+    overrides[name] = auditorOverride;
   }
 
   return overrides;
 }
 
-export async function loadConfig(): Promise<DriftlockConfig> {
-  const defaultConfig = normalizeDefaultConfig(defaultConfigJson);
+function buildUserValidatorOverrides(
+  validatorsRaw: unknown,
+  cwd: string
+): Record<string, string> {
+  if (!isPlainObject(validatorsRaw)) {
+    throw new Error(
+      'User config "validators" must be an object mapping names to paths.'
+    );
+  }
 
-  const userConfigPath = path.resolve(process.cwd(), "driftlock.config.json");
+  const validatorsObj = validatorsRaw as RawConfigObject;
+  const overrides: Record<string, string> = {};
 
-  let userOverrides: DriftlockConfigOverrides | undefined;
-
-  try {
-    const contents = await fs.readFile(userConfigPath, "utf8");
-    let parsed: unknown;
-
-    try {
-      parsed = JSON.parse(contents);
-    } catch (err) {
+  for (const [name, value] of Object.entries(validatorsObj)) {
+    if (typeof value !== "string") {
       throw new Error(
-        `Failed to parse driftlock.config.json: ${
-          err instanceof Error ? err.message : String(err)
-        }`
+        `User config validator "${name}" must be a string path.`
       );
     }
 
-    userOverrides = normalizeUserConfig(parsed, process.cwd());
-  } catch (err) {
-    const error = err as { code?: string };
-    if (error.code !== "ENOENT") {
-      throw err;
-    }
+    overrides[name] = path.resolve(cwd, value);
   }
 
-  if (!userOverrides) {
+  return overrides;
+}
+
+function buildUserFormatterOverrides(
+  formattersRaw: unknown,
+  cwd: string
+): DriftlockConfigOverrides["formatters"] {
+  if (!isPlainObject(formattersRaw)) {
+    throw new Error('User config "formatters" must be an object when provided.');
+  }
+
+  const formattersObj = formattersRaw as RawConfigObject;
+  const formattersOverride: DriftlockConfigOverrides["formatters"] = {};
+
+  if ("plan" in formattersObj) {
+    if (typeof formattersObj.plan !== "string") {
+      throw new Error(
+        'User config "formatters.plan" must be a string path when provided.'
+      );
+    }
+
+    formattersOverride.plan = path.resolve(cwd, formattersObj.plan);
+  }
+
+  if ("schema" in formattersObj) {
+    if (typeof formattersObj.schema !== "string") {
+      throw new Error(
+        'User config "formatters.schema" must be a string path when provided.'
+      );
+    }
+
+    formattersOverride.schema = path.resolve(cwd, formattersObj.schema);
+  }
+
+  return formattersOverride;
+}
+
+function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverrides {
+  const root = assertConfigRoot(raw, "User");
+
+  const overrides: DriftlockConfigOverrides = {};
+
+  if (root.auditors !== undefined) {
+    overrides.auditors = buildUserAuditorOverrides(root.auditors, cwd);
+  }
+
+  if (root.validators !== undefined) {
+    overrides.validators = buildUserValidatorOverrides(root.validators, cwd);
+  }
+
+  if (root.formatters !== undefined) {
+    overrides.formatters = buildUserFormatterOverrides(root.formatters, cwd);
+  }
+
+  return overrides;
+}
+
+function getUserConfigPath(): string {
+  return path.resolve(process.cwd(), "driftlock.config.json");
+}
+
+async function readUserConfigFile(filePath: string): Promise<unknown | undefined> {
+  try {
+    const contents = await fs.readFile(filePath, "utf8");
+    return JSON.parse(contents) as unknown;
+  } catch (error) {
+    const nodeError = error as { code?: string };
+
+    if (nodeError.code === "ENOENT") {
+      return undefined;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new Error(
+        `Failed to parse driftlock.config.json: ${error.message}`
+      );
+    }
+
+    throw error;
+  }
+}
+
+export async function loadConfig(): Promise<DriftlockConfig> {
+  const defaultConfig = normalizeDefaultConfig(defaultConfigJson);
+  const userConfigPath = getUserConfigPath();
+  const rawUserConfig = await readUserConfigFile(userConfigPath);
+
+  if (rawUserConfig === undefined) {
     return defaultConfig;
   }
 
+  const userOverrides = normalizeUserConfig(rawUserConfig, process.cwd());
   const merged = deepMerge<DriftlockConfig>(defaultConfig, userOverrides);
 
+  await ensureAuditorPathsExist(merged);
+
   return merged;
+}
+
+async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {
+  const checks = Object.entries(config.auditors).map(async ([name, auditor]) => {
+    try {
+      await fs.access(auditor.path, fsConstants.R_OK);
+    } catch {
+      throw new Error(
+        `Auditor "${name}" path does not exist or is not readable: ${auditor.path}`
+      );
+    }
+  });
+
+  await Promise.all(checks);
 }

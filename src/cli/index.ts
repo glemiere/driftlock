@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { runAuditCommand } from "./commands/audit";
 
 const program = new Command();
 
@@ -18,16 +19,6 @@ program
     "[auditors]",
     "comma-separated list of auditors (e.g. complexity,security)"
   )
-  .action((auditors: string | undefined) => {
-    const auditorList = auditors
-      ? auditors.split(",").map((a) => a.trim()).filter(Boolean)
-      : [];
-
-    if (auditorList.length === 0) {
-      console.log("Running audit with all configured auditors");
-    } else {
-      console.log("Running audit with auditors:", auditorList.join(", "));
-    }
-  });
+  .action(runAuditCommand);
 
 program.parse();
