@@ -20,7 +20,8 @@
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@types/node": "^22.7.4"
   },
   "dependencies": {
     "commander": "^14.0.2"
