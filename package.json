@@ -1,0 +1,28 @@
+{
+  "name": "codex-driftlock",
+  "version": "1.0.0",
+  "description": "A configurable AI orchestrator to fight entropy and keep your projects clean, powered by OpenAI Codex.",
+  "main": "dist/cli/index.js",
+  "bin": {
+    "driftlock": "dist/cli/index.js"
+  },
+  "repository": "git@github.com:glemiere/codex-driftlock.git",
+  "author": "Will Le Miere <will@lemiere.io>",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc -w",
+    "local-install": "command -v driftlock >/dev/null 2>&1 || npm link",
+    "local-uninstall": "npm uninstall -g codex-driftlock || true",
+    "dev": "npm run local-install && npm run build:watch",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "commander": "^14.0.2"
+  }
+}
