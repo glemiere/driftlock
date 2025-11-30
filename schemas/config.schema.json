@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/config.schema.json",
+  "title": "Driftlock Orchestrator Config",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema reference for this config file."
+    },
+    "auditors": {
+      "type": "object",
+      "description": "Mapping from auditor name to its configuration.",
+      "minProperties": 1,
+      "patternProperties": {
+        ".*": {
+          "$ref": "#/$defs/auditorConfig"
+        }
+      },
+      "additionalProperties": false
+    },
+    "validators": {
+      "type": "object",
+      "description": "Mapping from validator name to its source path.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "formatters": {
+      "type": "object",
+      "description": "Paths to formatter definitions and associated schemas.",
+      "additionalProperties": false,
+      "properties": {
+        "plan": {
+          "type": "string",
+          "description": "Path to the canonical plan formatter markdown."
+        },
+        "schema": {
+          "type": "string",
+          "description": "Path to the JSON Schema used to validate plans."
+        }
+      },
+      "required": ["plan", "schema"]
+    }
+  },
+  "required": ["auditors", "validators", "formatters"],
+  "$defs": {
+    "auditorConfig": {
+      "type": "object",
+      "description": "Configuration for a single auditor.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this auditor is active in the pipeline."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the auditor prompt or definition file."
+        },
+        "validators": {
+          "type": "array",
+          "description": "Ordered list of validator names to apply to this auditor's plans.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["enabled", "path", "validators"]
+    }
+  }
+}
+

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/plan.schema.json",
+  "title": "Auditor Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "plan": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why": {
+            "type": "string",
+            "minLength": 1
+          },
+          "filesInvolved": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "risk": {
+            "type": "string",
+            "enum": ["LOW", "MEDIUM", "HIGH"]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "complexity",
+              "consistency",
+              "security",
+              "dependency",
+              "documentation",
+              "modularity",
+              "performance",
+              "quality",
+              "reliability"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": ["action", "why", "filesInvolved", "category"]
+      }
+    }
+  },
+  "required": ["plan"]
+}
+

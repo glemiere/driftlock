@@ -1,0 +1,59 @@
+{
+  "$schema": "./schemas/config.schema.json",
+  "auditors": {
+    "complexity": {
+      "enabled": true,
+      "path": "./auditors/complexity.md",
+      "validators": ["structure", "general"]
+    },
+    "consistency": {
+      "enabled": true,
+      "path": "./auditors/consistency.md",
+      "validators": ["structure", "general"]
+    },
+    "dependency": {
+      "enabled": true,
+      "path": "./auditors/dependency.md",
+      "validators": ["structure", "general"]
+    },
+    "documentation": {
+      "enabled": true,
+      "path": "./auditors/documentation.md",
+      "validators": ["structure", "general"]
+    },
+    "modularity": {
+      "enabled": true,
+      "path": "./auditors/modularity.md",
+      "validators": ["structure", "general"]
+    },
+    "performance": {
+      "enabled": true,
+      "path": "./auditors/performance.md",
+      "validators": ["structure", "general"]
+    },
+    "quality": {
+      "enabled": true,
+      "path": "./auditors/quality.md",
+      "validators": ["structure", "general"]
+    },
+    "reliability": {
+      "enabled": true,
+      "path": "./auditors/reliability.md",
+      "validators": ["structure", "general"]
+    },
+    "security": {
+      "enabled": true,
+      "path": "./auditors/security.md",
+      "validators": ["structure", "general"]
+    }
+  },
+  "validators": {
+    "structure": "./validators/structure.md",
+    "general": "./validators/general.md"
+  },
+
+  "formatters": {
+    "plan": "./formatters/plan.md",
+    "schema": "./schemas/plan.schema.json"
+  }
+}
