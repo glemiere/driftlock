@@ -132,15 +132,5 @@ Recommend:
 - consolidating on one migration pattern where possible
 - documenting the migration tooling in relevant READMEs
 
-===========================================================
-7. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-Row format: `Severity | package file | dependency/version | evidence | action (remove/align/move/bump) | tests/migration impact | confidence`.  
-If multiple lockfiles/package managers exist, name the resolution order. End with “Surfaces checked / skipped”.
-
 Your goal: the system’s dependencies should be minimal, consistent, boring, and safe.
 No surprise drift, no accidental chaos.

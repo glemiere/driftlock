@@ -195,19 +195,4 @@ Propose:
 - Identify whether failure drills (database outage, identity latency, storage unavailability, queue backlog) are tested in CI/staging.
 - Recommend lightweight chaos/fault-injection or synthetic checks for the most critical paths (login, token refresh, evidence fetch).
 
-===========================================================
-8. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-For each issue:
-- file path (and line range) or metric/alert/dashboard identifier
-- description of the reliability risk
-- why it matters (impact on detection/response)
-- concrete fix (probe/timeout/backoff/metric/alert/runbook change)
-- tests or synthetic checks to add
-
-Row format: `Severity | reference (file path:line or metric/alert/dashboard id) | risk | evidence/impact | minimal fix | tests/synthetic checks | confidence`.  
 Keep within cap and end with “Surfaces checked / skipped”.

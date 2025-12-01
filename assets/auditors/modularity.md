@@ -203,23 +203,5 @@ Propose:
 - decoupling steps that make future extraction or service splitting feasible
 - introducing abstraction layers where necessary for long-term modularity
 
-===========================================================
-9. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-For each issue, provide:
-
-- file paths (and import statements, if relevant)
-- a short description of the modularity problem
-- why it hurts modularity / future refactors / isolation
-- a concrete refactor plan (move/split/merge, new abstraction, allowed import path)
-- any follow-up tests or doc changes needed
-
-Row format: `Severity | file path:line | violation | allowed graph ref | minimal fix | tests/docs | confidence`.  
-Keep within cap and end with “Surfaces checked / skipped”.
-
 Your goal: ensure the codebase is **highly modular, self-contained, and easy to split, refactor, and scale** as it grows.
 Every module should feel like a small, well-designed system with clear boundaries, not a tangle of cross-references.

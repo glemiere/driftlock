@@ -162,15 +162,5 @@ Ensure there is a central AGENTS.md or equivalent that:
 
 Propose updates to AGENTS.md to keep it in sync with the actual agents and invariants in the codebase.
 
-===========================================================
-8. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-Row format: `Severity | doc path:line | issue/text | code evidence path:line | precise replacement | tests/docs follow-up | confidence/UNKNOWN`.  
-Stay within the cap and end with “Surfaces checked / skipped”.
-
 Your goal: Docs should be a truthful, minimal, precise map of the system as it exists today.
 No lies, no drift, no fluff.

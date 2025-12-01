@@ -161,15 +161,5 @@ Flag:
 
 Recommend consolidation and standardization.
 
-===========================================================
-7. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-Row format: `Severity | file path:line | inconsistency | canonical path:line | minimal fix | tests/docs | confidence`.  
-Keep within the cap; end with “Surfaces checked / skipped”.
-
 Your goal: the system should feel like it was written by a single, meticulous engineer.
 Uniform, predictable, boring in the best way.

@@ -160,21 +160,4 @@ Avoid:
 - suggestions that break architecture boundaries
 - caching security-sensitive data without care
 
-===========================================================
-8. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-For each:
-- file + method
-- description of the performance smell
-- rationale (why this is costly)
-- proposed changes (queries, structure, caching, batching, streaming)
-- any tests / metrics that should be added to guard against regressions
-
-Row format: `Severity | file path:line | hotspot | evidence | minimal fix | tests/metrics | confidence`.  
-Stay within cap and end with “Surfaces checked / skipped”.
-
 Your goal: the system should scale gracefully as tenants and traffic grow, without sacrificing clarity, security, or maintainability.

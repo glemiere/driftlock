@@ -168,22 +168,4 @@ Act as a malicious user and attempt to:
 
 Report only evidence-backed attack paths and the exact fixes required; if none are proven, state that and stop (no hypothetical exploit lists).
 
-===========================================================
-9. OUTPUT FORMAT
-===========================================================
-Provide:
-
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-For each issue:
-- File paths
-- Line ranges (if available)
-- Exact fix recommendations
-- Tests to add
-- Documentation changes to make
-
-Row format: `Severity | file path:line | issue | evidence | risk (tenant/RBAC/token/validation/etc.) | minimal fix | tests/docs | confidence`.  
-Keep to cap; end with “Surfaces checked / skipped”. Be precise, surgical, and exhaustive.
 Question every assumption as if the system were hostile.

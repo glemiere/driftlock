@@ -20,7 +20,7 @@ describe("plan schema", () => {
   it("rejects numeric risk", () => {
     const invalid = {
       ...basePlan,
-      plan: [{ ...basePlan.plan[0], risk: 1 as unknown as string }],
+      plan: [{ ...basePlan.plan[0], risk: 1 as unknown as string, steps: ["step"] }],
     };
 
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
@@ -51,6 +51,7 @@ describe("plan schema", () => {
         {
           ...basePlan.plan[0],
           filesInvolved: [],
+          steps: ["step"],
         },
       ],
     };
@@ -64,6 +65,7 @@ describe("plan schema", () => {
         {
           ...basePlan.plan[0],
           filesInvolved: [{ file: "nested" }],
+          steps: ["step"],
         },
       ],
     };
@@ -79,12 +81,74 @@ describe("plan schema", () => {
         {
           ...basePlan.plan[0],
           extraField: "nope",
+          steps: ["step"],
         },
       ],
     };
 
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
       /unknown key "extraField"/i
+    );
+  });
+
+  it("allows custom category values", () => {
+    const valid = {
+      plan: [
+        {
+          ...basePlan.plan[0],
+          category: "custom-auditor",
+          steps: ["step"],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
+  });
+
+  it("rejects missing steps", () => {
+    const invalid = {
+      plan: [
+        {
+          action: "Do something",
+          why: "Because",
+          filesInvolved: ["file.ts"],
+          category: "security",
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /missing required key "steps"/i
+    );
+  });
+
+  it("rejects empty steps array", () => {
+    const invalid = {
+      plan: [
+        {
+          ...basePlan.plan[0],
+          steps: [],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /at least 1 item/i
+    );
+  });
+
+  it("rejects non-string steps", () => {
+    const invalid = {
+      plan: [
+        {
+          ...basePlan.plan[0],
+          steps: ["valid", 123],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /expected string/i
     );
   });
 });

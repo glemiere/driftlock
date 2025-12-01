@@ -181,23 +181,4 @@ Ensure tests reflect reality, not implementation details:
 - ensure identity/tenant metadata is passed realistically
 - ensure error paths reflect real production HTTP/RPC behavior
 
-===========================================================
-6. OUTPUT FORMAT
-===========================================================
-CRITICAL – production-impacting or correctness/security-breaking risk  
-IMPORTANT – structural/behavioral gaps with plausible user/tenant impact  
-MINOR – hygiene/clarity/consistency cleanup
-
-For each issue provide:
-- file path
-- exact line ranges where relevant
-- missing scenario description
-- proposed test (name + code)
-- deterministic improvements
-- isolation fixes
-- doc updates if needed
-
-Row format: `Severity | file path:line | finding | evidence | minimal fix/test outline | determinism/isolation note | suite discovery assumption | confidence`.  
-Stop at cap; end with “Surfaces checked / skipped”.
-
 Be precise and scenario-driven within the caps; stop after the top ~10 missing scenarios and note any skipped surfaces.

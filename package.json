@@ -29,6 +29,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@openai/codex-sdk": "^0.63.0",
     "commander": "^14.0.2"
   }
 }
