@@ -26,6 +26,7 @@ export const state: TuiState = {
   lastBorderRows: 0,
   borderLength: 0,
   rightFlushTimer: undefined,
+  exitRequested: false,
 };
 
 export function setTitle(value: string): void {
@@ -38,4 +39,20 @@ export function setHeaderInfo(value: string): void {
 
 export function setFooterInfo(value: string): void {
   state.footerInfo = value || "";
+}
+
+export function requestExit(): void {
+  state.exitRequested = true;
+}
+
+export function clearExitRequest(): void {
+  state.exitRequested = false;
+}
+
+export function isExitRequested(): boolean {
+  return Boolean(state.exitRequested);
+}
+
+export function toggleExitRequest(): void {
+  state.exitRequested = !state.exitRequested;
 }

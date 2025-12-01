@@ -4,7 +4,7 @@ function stripAnsi(text: string): string {
   return text.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
-function visibleLength(text: string): number {
+export function visibleLength(text: string): number {
   return stripAnsi(text).length;
 }
 

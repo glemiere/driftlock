@@ -1,5 +1,5 @@
 import { loadConfig } from "../../core/config-loader";
-import { runAudit } from "../../core/orchestrator";
+import { runAuditLoop } from "../../core/orchestrator";
 import { tui } from "../tui";
 
 export async function runAuditCommand(
@@ -41,7 +41,7 @@ export async function runAuditCommand(
   tui.logLeft(`Running Driftlock audit for: ${auditors.join(", ")}`);
 
   try {
-    await runAudit(auditors, config);
+    await runAuditLoop(auditors, config);
   } finally {
     tui.shutdown();
   }

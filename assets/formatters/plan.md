@@ -2,7 +2,7 @@
 GLOBAL PLAN FORMATTER GUIDANCE
 ===========================================================
 
-You produce a JSON plan described by plan.schema.json.
+You produce a JSON plan described by the provided plan.schema.json.
 
 High-level intent:
 - Analyze the codebase for structural, stylistic, architectural, or correctness issues.
@@ -42,3 +42,6 @@ Each step must be concrete and self-contained:
 - If there is work to do, set `noop: false` (or omit) and include 1–3 plan items.
 - If there is nothing to do, set `noop: true`, provide a short `reason`, and set `plan` to an empty array.
 - Never invent plan items when `noop` is true.
+
+## Final note
+This is a read-only operation, no changes to any file should be performed.

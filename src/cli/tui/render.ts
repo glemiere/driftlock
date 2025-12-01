@@ -2,12 +2,20 @@ import { BOX, COLORS, ESC, FOOTER_LABEL, LAYOUT, RESET } from "./constants";
 import { initBorders, paintBorder } from "./border";
 import { computeLayout, clampOffsets, paneView, visibleRows } from "./layout";
 import { state } from "./state";
-import { padLine, formatElapsed } from "./text";
+import { padLine, formatElapsed, visibleLength } from "./text";
 
 function renderHeader(innerWidth: number): string {
   const info = state.headerInfo ? `   ${COLORS.header}${state.headerInfo}${RESET}` : "";
   const elapsed = `${COLORS.header}${FOOTER_LABEL.elapsed}: ${formatElapsed(state.startTime)}${RESET}`;
-  return padLine(`${COLORS.title}${state.title}${RESET}${info}   ${elapsed}`, innerWidth, "");
+  const base = `${COLORS.title}${state.title}${RESET}${info}   ${elapsed}`;
+
+  if (state.exitRequested) {
+    const exitText = `${COLORS.error}● exit pending${RESET}`;
+    const padding = Math.max(1, innerWidth - visibleLength(base) - visibleLength(exitText));
+    return `${base}${" ".repeat(padding)}${exitText}`;
+  }
+
+  return padLine(base, innerWidth, "");
 }
 
 function renderFooter(innerWidth: number): string {

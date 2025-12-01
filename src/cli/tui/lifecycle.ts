@@ -2,7 +2,7 @@ import { KEY } from "./constants";
 import { disableAltScreen, enableAltScreen, shouldUseTui } from "./screen";
 import { computeLayout, visibleRows } from "./layout";
 import { render, scheduleRender } from "./render";
-import { state } from "./state";
+import { state, requestExit, clearExitRequest, toggleExitRequest } from "./state";
 import { initBorders, paintBorder, startRainbowBorder } from "./border";
 import type { Side } from "./types";
 
@@ -10,8 +10,7 @@ function handleKey(chunk: Buffer): void {
   if (handleMouse(chunk)) return;
   const key = chunk.toString();
   if (key === KEY.quit || key === KEY.ctrlC) {
-    shutdown();
-    process.exit(1);
+    toggleExitRequest();
   }
 }
 
@@ -68,6 +67,7 @@ function adjustOffset(side: Side, delta: number): void {
 export function initTui(): void {
   state.enabled = shouldUseTui();
   state.active = state.enabled;
+  clearExitRequest();
   if (!state.enabled) return;
   computeLayout();
   state.startTime = Date.now();
