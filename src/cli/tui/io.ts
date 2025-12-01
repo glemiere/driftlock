@@ -18,6 +18,13 @@ function trimBuffer(side: "left" | "right"): void {
   clampOffsets();
 }
 
+function trimMirror(): void {
+  if (state.leftMirror.length > MAX_BUFFER) {
+    const remove = state.leftMirror.length - MAX_BUFFER;
+    state.leftMirror.splice(0, remove);
+  }
+}
+
 function scheduleRightFlush(): void {
   if (!state.enabled || state.rightFlushTimer) return;
   state.rightFlushTimer = setTimeout(() => {
@@ -35,10 +42,12 @@ function push(side: "left" | "right", message: string): void {
     // Writing to stdout while the TUI is active can cause flicker.
     if (state.enabled) {
       state.leftMirror.push(...message.split(/\r?\n/));
+      trimMirror();
       return;
     }
     const lines = message.split(/\r?\n/);
     state.leftMirror.push(...lines);
+    trimMirror();
     lines.forEach((line) => console.log(line));
   };
 
