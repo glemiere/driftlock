@@ -1,10 +1,14 @@
 import { loadConfig } from "../../core/config-loader";
 import { runAudit } from "../../core/orchestrator";
+import { tui } from "../tui";
 
 export async function runAuditCommand(
   auditorsArg?: string,
   ..._rest: unknown[]
 ): Promise<void> {
+  tui.init();
+  tui.setTitle("Driftlock Audit");
+
   const config = await loadConfig();
 
   const auditors =
@@ -32,7 +36,13 @@ export async function runAuditCommand(
     return;
   }
 
-  console.log(`Running Driftlock audit for: ${auditors.join(", ")}`);
+  const headerInfo = `auditors: ${auditors.join(", ")}`;
+  tui.setHeaderInfo(headerInfo);
+  tui.logLeft(`Running Driftlock audit for: ${auditors.join(", ")}`);
 
-  await runAudit(auditors, config);
+  try {
+    await runAudit(auditors, config);
+  } finally {
+    tui.shutdown();
+  }
 }

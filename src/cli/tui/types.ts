@@ -1,0 +1,32 @@
+export type Side = "left" | "right";
+export type BorderCoord = { row: number; col: number; char: string };
+export type BorderSegment = BorderCoord[];
+
+export type TuiState = {
+  left: string[];
+  right: string[];
+  rightQueue: string[];
+  leftMirror: string[];
+  cols: number;
+  rows: number;
+  leftWidth: number;
+  rightWidth: number;
+  scheduled: boolean;
+  active: boolean;
+  enabled: boolean;
+  rendering: boolean;
+  leftOffset: number;
+  rightOffset: number;
+  startTime: number;
+  title: string;
+  headerInfo: string;
+  footerInfo: string;
+  border: BorderCoord[];
+  borderSegments: BorderSegment[];
+  hue: number;
+  borderTimer?: NodeJS.Timeout;
+  rightFlushTimer?: NodeJS.Timeout;
+  lastBorderCols: number;
+  lastBorderRows: number;
+  borderLength: number;
+};

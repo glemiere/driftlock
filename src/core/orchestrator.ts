@@ -1,5 +1,6 @@
 import type { DriftlockConfig } from "./config-loader";
 import { sleep } from "../utils/sleep";
+import { tui } from "../cli/tui";
 import { resolveModel } from "./model-resolver";
 
 export async function runAudit(
@@ -11,22 +12,22 @@ export async function runAudit(
 
   while (true) {
     for (const auditorName of auditors) {
-      console.log(auditorName);
+      tui.logLeft(auditorName);
 
       const model = resolveModel(config, auditorName);
-      console.log(`[${auditorName}] using model: ${model}`);
+      tui.logLeft(`[${auditorName}] using model: ${model}`);
 
       // TODO: load auditor prompt
       for (const validatorName of config.auditors[auditorName].validators) {
         const validatorModel = resolveModel(config, auditorName, validatorName);
-        console.log(`[${auditorName} → ${validatorName}] using model: ${validatorModel}`);
+        tui.logRight(`[${auditorName} → ${validatorName}] using model: ${validatorModel}`);
       }
       // TODO: call plan formatter
       // TODO: run structure validator
       // TODO: run general validator
       // TODO: executor will run here later
 
-      await sleep(5000); // tiny delay so the loop doesn’t melt the CPU
+      await sleep(500); // tiny delay so the loop doesn’t melt the CPU
     }
   }
 }
