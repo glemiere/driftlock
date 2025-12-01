@@ -5,6 +5,10 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "model": {
+      "type": "string",
+      "description": "Global default model for Driftlock."
+    },
     "$schema": {
       "type": "string",
       "description": "Optional JSON Schema reference for this config file."
@@ -25,7 +29,17 @@
       "description": "Mapping from validator name to its source path.",
       "minProperties": 1,
       "additionalProperties": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          }
+        },
+        "required": ["path"],
+        "additionalProperties": false
       }
     },
     "formatters": {
@@ -40,6 +54,10 @@
         "schema": {
           "type": "string",
           "description": "Path to the JSON Schema used to validate plans."
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model override for formatter stage."
         }
       },
       "required": ["plan", "schema"]
@@ -74,6 +92,10 @@
             "type": "string"
           },
           "minItems": 1
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model override for this auditor."
         }
       },
       "required": ["enabled", "path", "validators"]

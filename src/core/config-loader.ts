@@ -8,28 +8,38 @@ export type AuditorConfig = {
   enabled: boolean;
   path: string;
   validators: string[];
+  model?: string;
+};
+
+export type ValidatorConfig = {
+  path: string;
+  model?: string;
 };
 
 export type DriftlockConfig = {
   auditors: Record<string, AuditorConfig>;
-  validators: Record<string, string>;
+  validators: Record<string, ValidatorConfig>;
   formatters: {
     plan: string;
     schema: string;
+    model?: string;
   };
   exclude: string[];
+  model?: string;
 };
 
 type AuditorConfigOverride = Partial<AuditorConfig>;
 
 type DriftlockConfigOverrides = {
   auditors?: Record<string, AuditorConfigOverride>;
-  validators?: Record<string, string>;
+  validators?: Record<string, ValidatorConfig>;
   formatters?: {
     plan?: string;
     schema?: string;
+    model?: string;
   };
   exclude?: string[];
+  model?: string;
 };
 
 type RawConfigObject = Record<string, unknown>;
@@ -127,17 +137,20 @@ function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, 
   return auditors;
 }
 
-function normalizeDefaultValidators(validatorsObj: RawConfigObject): Record<string, string> {
-  const validators: Record<string, string> = {};
+function normalizeDefaultValidators(validatorsObj: RawConfigObject): Record<string, ValidatorConfig> {
+  const validators: Record<string, ValidatorConfig> = {};
 
   for (const [name, value] of Object.entries(validatorsObj)) {
-    if (typeof value !== "string") {
+    if (!isPlainObject(value) || typeof value.path !== "string") {
       throw new Error(
-        `Default config validator "${name}" must be a string path.`
+        `Default config validator "${name}" must be an object with a string path.`
       );
     }
 
-    validators[name] = path.resolve(PACKAGE_ROOT, value);
+    validators[name] = {
+      path: path.resolve(PACKAGE_ROOT, value.path),
+      model: typeof value.model === "string" ? value.model : undefined,
+    };
   }
 
   return validators;
@@ -189,6 +202,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const validatorsObj = getSectionObject(root, "validators", "Default");
   const formattersObj = getSectionObject(root, "formatters", "Default");
   const exclude = normalizeDefaultExclude(root);
+  const model = typeof root.model === "string" ? root.model : undefined;
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -199,6 +213,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     validators,
     formatters,
     exclude,
+    model,
   };
 }
 
@@ -265,7 +280,7 @@ function buildUserAuditorOverrides(
 function buildUserValidatorOverrides(
   validatorsRaw: unknown,
   cwd: string
-): Record<string, string> {
+): Record<string, ValidatorConfig> {
   if (!isPlainObject(validatorsRaw)) {
     throw new Error(
       'User config "validators" must be an object mapping names to paths.'
@@ -273,16 +288,24 @@ function buildUserValidatorOverrides(
   }
 
   const validatorsObj = validatorsRaw as RawConfigObject;
-  const overrides: Record<string, string> = {};
+  const overrides: Record<string, ValidatorConfig> = {};
 
   for (const [name, value] of Object.entries(validatorsObj)) {
-    if (typeof value !== "string") {
+    if (typeof value === "string") {
+      overrides[name] = { path: path.resolve(cwd, value) };
+      continue;
+    }
+
+    if (!isPlainObject(value) || typeof value.path !== "string") {
       throw new Error(
-        `User config validator "${name}" must be a string path.`
+        `User config validator "${name}" must be a string path or an object with a string path.`
       );
     }
 
-    overrides[name] = path.resolve(cwd, value);
+    overrides[name] = {
+      path: path.resolve(cwd, value.path),
+      model: typeof value.model === "string" ? value.model : undefined,
+    };
   }
 
   return overrides;
@@ -345,7 +368,7 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
   }
 
   if (root.formatters !== undefined) {
-    overrides.formatters = buildUserFormatterOverrides(root.formatters, cwd);
+    throw new Error("User config may not override formatters; this is configured by default only.");
   }
 
   if (root.exclude !== undefined) {
@@ -354,6 +377,13 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
     }
 
     overrides.exclude = root.exclude.map((item) => path.resolve(cwd, item));
+  }
+
+  if (root.model !== undefined) {
+    if (typeof root.model !== "string") {
+      throw new Error('User config "model" must be a string when provided.');
+    }
+    overrides.model = root.model;
   }
 
   return overrides;
@@ -459,12 +489,12 @@ async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {
 }
 
 async function ensureValidatorPathsExist(config: DriftlockConfig): Promise<void> {
-  const checks = Object.entries(config.validators).map(async ([name, validatorPath]) => {
+  const checks = Object.entries(config.validators).map(async ([name, validator]) => {
     try {
-      await fs.access(validatorPath, fsConstants.R_OK);
+      await fs.access(validator.path, fsConstants.R_OK);
     } catch {
       throw new Error(
-        `Validator "${name}" path does not exist or is not readable: ${validatorPath}`
+        `Validator "${name}" path does not exist or is not readable: ${validator.path}`
       );
     }
   });

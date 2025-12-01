@@ -25,7 +25,7 @@ describe("config-loader", () => {
     expect(config.auditors.security).toBeDefined();
     expect(config.auditors.security.enabled).toBe(true);
     expect(path.isAbsolute(config.auditors.security.path)).toBe(true);
-    expect(path.isAbsolute(config.validators.structure)).toBe(true);
+    expect(path.isAbsolute(config.validators.structure.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.plan)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
   });
@@ -60,7 +60,7 @@ describe("config-loader", () => {
         await fs.realpath(expectedPath)
       );
       expect(config.auditors.complexity.enabled).toBe(true);
-      expect(path.isAbsolute(config.validators.structure)).toBe(true);
+      expect(path.isAbsolute(config.validators.structure.path)).toBe(true);
     });
   });
 
@@ -350,6 +350,26 @@ describe("config-loader", () => {
     });
   });
 
+  it("rejects user attempts to override formatters", async () => {
+    await withTempDir(async (dir) => {
+      const userConfig = {
+        formatters: {
+          plan: "./custom/plan.md",
+          schema: "./custom/plan.schema.json",
+        },
+      };
+
+      await fs.writeFile(
+        path.join(dir, "driftlock.config.json"),
+        JSON.stringify(userConfig, null, 2)
+      );
+
+      process.chdir(dir);
+
+      await expect(loadConfig()).rejects.toThrow(/may not override formatters/i);
+    });
+  });
+
   it("exclude array resolves paths relative to cwd and replaces defaults", async () => {
     await withTempDir(async (dir) => {
       const userConfig = {
@@ -380,7 +400,7 @@ describe("config-loader", () => {
     await withTempDir(async (dir) => {
       const userConfig = {
         validators: {
-          custom: "./validators/custom.md",
+          custom: { path: "./validators/custom.md" },
         },
         auditors: {
           security: { path: "./auditors/security.md", validators: ["structure"] },

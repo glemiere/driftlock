@@ -1,5 +1,6 @@
 {
   "$schema": "./assets/schemas/config.schema.json",
+  "model": "gpt-5.1-codex-max",
   "auditors": {
     "complexity": {
       "enabled": true,
@@ -48,8 +49,8 @@
     }
   },
   "validators": {
-    "structure": "./assets/validators/structure.md",
-    "general": "./assets/validators/general.md"
+    "structure": { "path": "./assets/validators/structure.md" },
+    "general": { "path": "./assets/validators/general.md" }
   },
   "formatters": {
     "plan": "./assets/formatters/plan.md",

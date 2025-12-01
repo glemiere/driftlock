@@ -1,5 +1,6 @@
 import type { DriftlockConfig } from "./config-loader";
 import { sleep } from "../utils/sleep";
+import { resolveModel } from "./model-resolver";
 
 export async function runAudit(
   auditors: string[],
@@ -12,7 +13,14 @@ export async function runAudit(
     for (const auditorName of auditors) {
       console.log(auditorName);
 
+      const model = resolveModel(config, auditorName);
+      console.log(`[${auditorName}] using model: ${model}`);
+
       // TODO: load auditor prompt
+      for (const validatorName of config.auditors[auditorName].validators) {
+        const validatorModel = resolveModel(config, auditorName, validatorName);
+        console.log(`[${auditorName} → ${validatorName}] using model: ${validatorModel}`);
+      }
       // TODO: call plan formatter
       // TODO: run structure validator
       // TODO: run general validator
