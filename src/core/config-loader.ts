@@ -45,7 +45,7 @@ type DriftlockConfigOverrides = {
 type RawConfigObject = Record<string, unknown>;
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
-const REQUIRED_VALIDATORS = ["structure", "general"];
+const REQUIRED_VALIDATORS = ["plan"];
 
 function isPlainObject(value: unknown): value is RawConfigObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);

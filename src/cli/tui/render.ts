@@ -39,8 +39,12 @@ function renderFrame(): string {
 
   let row = LAYOUT.contentStartRow;
   for (let i = 0; i < rows; i += 1) {
-    const left = padLine(leftLines[i] ?? "", state.leftWidth, COLORS.left);
-    const right = padLine(rightLines[i] ?? "", state.rightWidth, COLORS.right);
+    const leftText = leftLines[i] ?? "";
+    const rightText = rightLines[i] ?? "";
+    const leftColor = /\x1b\[[0-9;]*m/.test(leftText) ? "" : COLORS.left;
+    const rightColor = /\x1b\[[0-9;]*m/.test(rightText) ? "" : COLORS.right;
+    const left = padLine(leftText, state.leftWidth, leftColor);
+    const right = padLine(rightText, state.rightWidth, rightColor);
     writeRow(row, `${left}${BOX.v}${right}`);
     row += 1;
   }

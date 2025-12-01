@@ -36,3 +36,9 @@ Each step must be concrete and self-contained:
 - include file paths
 - describe the exact code change
 - specify the lines or structure to modify when applicable
+
+## When there is nothing to do
+- Always include a `noop` boolean and a `plan` array in the response.
+- If there is work to do, set `noop: false` (or omit) and include 1–3 plan items.
+- If there is nothing to do, set `noop: true`, provide a short `reason`, and set `plan` to an empty array.
+- Never invent plan items when `noop` is true.

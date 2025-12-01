@@ -1,4 +1,4 @@
-import { MAX_BUFFER, tokenPattern } from "./constants";
+import { COLORS, MAX_BUFFER, RESET, tokenPattern } from "./constants";
 import { computeLayout, visibleRows, clampOffsets } from "./layout";
 import { scheduleRender } from "./render";
 import { state } from "./state";
@@ -35,17 +35,20 @@ function scheduleRightFlush(): void {
   }, 60);
 }
 
-function push(side: "left" | "right", message: string): void {
+function push(side: "left" | "right", message: string, colorKey?: keyof typeof COLORS): void {
+  const colorPrefix = colorKey && COLORS[colorKey] ? COLORS[colorKey] : "";
+  const coloredMessage = colorPrefix ? `${colorPrefix}${message}${RESET}` : message;
+
   const mirrorToStdout = () => {
     if (side !== "left") return;
     // When the TUI is enabled we keep a mirror buffer and flush on shutdown.
     // Writing to stdout while the TUI is active can cause flicker.
     if (state.enabled) {
-      state.leftMirror.push(...message.split(/\r?\n/));
+      state.leftMirror.push(...coloredMessage.split(/\r?\n/));
       trimMirror();
       return;
     }
-    const lines = message.split(/\r?\n/);
+    const lines = coloredMessage.split(/\r?\n/);
     state.leftMirror.push(...lines);
     trimMirror();
     lines.forEach((line) => console.log(line));
@@ -70,8 +73,12 @@ function push(side: "left" | "right", message: string): void {
       continue;
     }
     const wrapped = wrapLine(line, width, tokenPattern);
-    target.push(...wrapped);
-    queue?.push(...wrapped);
+    const coloredLines =
+      colorKey && COLORS[colorKey]
+        ? wrapped.map((wrappedLine) => `${COLORS[colorKey]}${wrappedLine}${RESET}`)
+        : wrapped;
+    target.push(...coloredLines);
+    queue?.push(...coloredLines);
   }
 
   trimBuffer(side);
@@ -82,8 +89,8 @@ function push(side: "left" | "right", message: string): void {
   }
 }
 
-export function logLeft(message: string): void {
-  push("left", message);
+export function logLeft(message: string, colorKey?: keyof typeof COLORS): void {
+  push("left", message, colorKey);
 }
 
 export function logRight(message: string): void {

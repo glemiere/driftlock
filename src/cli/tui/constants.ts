@@ -9,6 +9,7 @@ export const COLORS = {
   right: `${ESC}90m`,
   error: `${ESC}31m`,
   success: `${ESC}32m`,
+  warn: `${ESC}33m`,
 };
 
 export const BOX = {

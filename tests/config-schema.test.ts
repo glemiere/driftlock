@@ -36,7 +36,7 @@ describe("config schema", () => {
       auditors: {
         security: { enabled: true },
       },
-      validators: { structure: { path: "./validators/structure.md" } },
+      validators: { plan: { path: "./validators/plan.md" } },
       formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
     };
 
@@ -48,7 +48,7 @@ describe("config schema", () => {
   it("rejects non-string validator paths", () => {
     const invalid = {
       auditors: {},
-      validators: { structure: { path: 123 } },
+      validators: { plan: { path: 123 } },
       formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
     };
 
@@ -63,10 +63,10 @@ describe("config schema", () => {
         security: {
           enabled: true,
           path: "./auditors/security.md",
-          validators: ["structure", 123],
+          validators: ["plan", 123],
         },
       },
-      validators: { structure: { path: "./validators/structure.md" } },
+      validators: { plan: { path: "./validators/plan.md" } },
       formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
     };
 
@@ -94,7 +94,7 @@ describe("config schema", () => {
         security: {
           enabled: true,
           path: "./auditors/security.md",
-          validators: ["structure"],
+          validators: ["plan"],
         },
       },
     };

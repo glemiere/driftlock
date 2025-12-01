@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Plan Validation Result",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "valid": { "type": "boolean" },
+    "reason": { "type": "string" }
+  },
+  "required": ["valid", "reason"]
+}

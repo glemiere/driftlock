@@ -11,6 +11,8 @@ type JsonSchema = {
   maxItems?: number;
   minLength?: number;
   enum?: unknown[];
+  const?: unknown;
+  oneOf?: JsonSchema[];
 };
 
 export type SchemaValidationOptions = {
@@ -36,6 +38,33 @@ function validate(
   allowPartial: boolean
 ): void {
   const resolvedSchema = resolveRef(schema, rootSchema, schemaName, path);
+
+  if (resolvedSchema.oneOf && resolvedSchema.oneOf.length > 0) {
+    const errors: string[] = [];
+    for (const option of resolvedSchema.oneOf) {
+      try {
+        validate(value, option, rootSchema, schemaName, path, allowPartial);
+        return;
+      } catch (err) {
+        errors.push((err as Error).message);
+      }
+    }
+    throw new Error(
+      `${schemaName} validation failed at ${path}: value did not match any schema in oneOf. Errors: ${errors.join(
+        " | "
+      )}`
+    );
+  }
+
+  if ("const" in resolvedSchema) {
+    if (value !== resolvedSchema.const) {
+      throw new Error(
+        `${schemaName} validation failed at ${path}: expected constant value ${JSON.stringify(
+          resolvedSchema.const
+        )}.`
+      );
+    }
+  }
 
   if (resolvedSchema.type === "object") {
     ensureObject(value, schemaName, path);

@@ -5,52 +5,51 @@
     "complexity": {
       "enabled": true,
       "path": "./assets/auditors/complexity.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "consistency": {
       "enabled": true,
       "path": "./assets/auditors/consistency.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "dependency": {
       "enabled": true,
       "path": "./assets/auditors/dependency.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "documentation": {
       "enabled": true,
       "path": "./assets/auditors/documentation.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "modularity": {
       "enabled": true,
       "path": "./assets/auditors/modularity.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "performance": {
       "enabled": true,
       "path": "./assets/auditors/performance.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "quality": {
       "enabled": true,
       "path": "./assets/auditors/quality.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "reliability": {
       "enabled": true,
       "path": "./assets/auditors/reliability.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     },
     "security": {
       "enabled": true,
       "path": "./assets/auditors/security.md",
-      "validators": ["structure", "general"]
+      "validators": ["plan"]
     }
   },
   "validators": {
-    "structure": { "path": "./assets/validators/structure.md" },
-    "general": { "path": "./assets/validators/general.md" }
+    "plan": { "path": "./assets/validators/plan.md" }
   },
   "formatters": {
     "plan": "./assets/formatters/plan.md",

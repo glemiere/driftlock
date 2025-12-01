@@ -25,7 +25,7 @@ describe("config-loader", () => {
     expect(config.auditors.security).toBeDefined();
     expect(config.auditors.security.enabled).toBe(true);
     expect(path.isAbsolute(config.auditors.security.path)).toBe(true);
-    expect(path.isAbsolute(config.validators.structure.path)).toBe(true);
+    expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.plan)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
   });
@@ -60,7 +60,7 @@ describe("config-loader", () => {
         await fs.realpath(expectedPath)
       );
       expect(config.auditors.complexity.enabled).toBe(true);
-      expect(path.isAbsolute(config.validators.structure.path)).toBe(true);
+      expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
     });
   });
 
@@ -160,7 +160,7 @@ describe("config-loader", () => {
 
       const userConfig = {
         auditors: {
-          security: { validators: ["structure"], path: "./.ai/auditors/security.md" },
+          security: { validators: ["plan"], path: "./.ai/auditors/security.md" },
         },
       };
 
@@ -172,7 +172,7 @@ describe("config-loader", () => {
       process.chdir(dir);
 
       const config = await loadConfig();
-      expect(config.auditors.security.validators).toEqual(["structure", "general"]);
+      expect(config.auditors.security.validators).toEqual(["plan"]);
     });
   });
 
@@ -181,7 +181,7 @@ describe("config-loader", () => {
       const userConfig = {
         auditors: {
           reliability: {
-            validators: ["structure"],
+            validators: ["plan"],
           },
         },
       };
@@ -194,7 +194,7 @@ describe("config-loader", () => {
       process.chdir(dir);
 
       const config = await loadConfig();
-      expect(config.auditors.reliability.validators).toEqual(["structure", "general"]);
+      expect(config.auditors.reliability.validators).toEqual(["plan"]);
       expect(config.auditors.reliability.path.includes("auditors/reliability.md")).toBe(true);
     });
   });
@@ -208,7 +208,7 @@ describe("config-loader", () => {
 
       const userConfig = {
         auditors: {
-          custom: { enabled: true, path: "./auditors/custom.md", validators: ["structure"] },
+          custom: { enabled: true, path: "./auditors/custom.md", validators: ["plan"] },
         },
       };
 
@@ -222,7 +222,7 @@ describe("config-loader", () => {
       const config = await loadConfig();
       expect(config.auditors.custom).toBeDefined();
       expect(config.auditors.custom.enabled).toBe(true);
-      expect(config.auditors.custom.validators).toEqual(["structure", "general"]);
+      expect(config.auditors.custom.validators).toEqual(["plan"]);
     });
   });
 
@@ -237,7 +237,7 @@ describe("config-loader", () => {
         auditors: {
           security: {
             enabled: false,
-            validators: ["structure"],
+            validators: ["plan"],
             path: "./auditors/security.md",
           },
         },
@@ -252,7 +252,7 @@ describe("config-loader", () => {
 
       const config = await loadConfig();
       expect(config.auditors.security.enabled).toBe(false);
-      expect(config.auditors.security.validators).toEqual(["structure", "general"]);
+      expect(config.auditors.security.validators).toEqual(["plan"]);
     });
   });
 
@@ -265,7 +265,7 @@ describe("config-loader", () => {
 
       const userConfig = {
         auditors: {
-          Security: { enabled: true, path: "./.ai/auditors/Security.md", validators: ["structure"] },
+          Security: { enabled: true, path: "./.ai/auditors/Security.md", validators: ["plan"] },
         },
       };
 
@@ -302,7 +302,7 @@ describe("config-loader", () => {
         auditors: {
           security: { path: paths.dotSlash },
           consistency: { path: paths.noDot },
-          custom: { enabled: true, path: paths.parent, validators: ["structure"] },
+          custom: { enabled: true, path: paths.parent, validators: ["plan"] },
         },
       };
 
@@ -403,7 +403,7 @@ describe("config-loader", () => {
           custom: { path: "./validators/custom.md" },
         },
         auditors: {
-          security: { path: "./auditors/security.md", validators: ["structure"] },
+          security: { path: "./auditors/security.md", validators: ["plan"] },
         },
       };
 
@@ -426,8 +426,8 @@ describe("config-loader", () => {
       const config1 = await loadConfig();
       const config2 = await loadConfig();
 
-      expect(config1.auditors.security.validators.includes("general")).toBe(true);
-      expect(config2.auditors.security.validators.includes("general")).toBe(true);
+      expect(config1.auditors.security.validators.includes("plan")).toBe(true);
+      expect(config2.auditors.security.validators.includes("plan")).toBe(true);
     });
   });
 });

@@ -5,11 +5,14 @@ import { validateAgainstSchema } from "../src/utils/schema-validator";
 const schemaName = "Plan schema";
 
 const basePlan = {
+  noop: false,
+  reason: "Work identified",
   plan: [
     {
       action: "Do something",
       why: "Because it's needed",
       filesInvolved: ["file.ts"],
+      steps: ["step"],
       risk: "LOW",
       category: "security",
     },
@@ -20,7 +23,7 @@ describe("plan schema", () => {
   it("rejects numeric risk", () => {
     const invalid = {
       ...basePlan,
-      plan: [{ ...basePlan.plan[0], risk: 1 as unknown as string, steps: ["step"] }],
+      plan: [{ ...basePlan.plan[0], risk: 1 as unknown as string }],
     };
 
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
@@ -28,15 +31,9 @@ describe("plan schema", () => {
     );
   });
 
-  it("rejects empty plan array (minItems)", () => {
-    const invalid = { plan: [] };
-    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
-      /at least 1 item/i
-    );
-  });
-
   it("rejects plans with more than 3 items (maxItems)", () => {
     const invalid = {
+      ...basePlan,
       plan: [basePlan.plan[0], basePlan.plan[0], basePlan.plan[0], basePlan.plan[0]],
     };
 
@@ -47,11 +44,11 @@ describe("plan schema", () => {
 
   it("allows empty filesInvolved array (per schema)", () => {
     const valid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
           filesInvolved: [],
-          steps: ["step"],
         },
       ],
     };
@@ -61,11 +58,11 @@ describe("plan schema", () => {
 
   it("rejects nested objects in filesInvolved", () => {
     const invalid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
           filesInvolved: [{ file: "nested" }],
-          steps: ["step"],
         },
       ],
     };
@@ -77,11 +74,11 @@ describe("plan schema", () => {
 
   it("rejects unknown fields in plan items", () => {
     const invalid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
           extraField: "nope",
-          steps: ["step"],
         },
       ],
     };
@@ -93,11 +90,11 @@ describe("plan schema", () => {
 
   it("allows custom category values", () => {
     const valid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
           category: "custom-auditor",
-          steps: ["step"],
         },
       ],
     };
@@ -107,12 +104,14 @@ describe("plan schema", () => {
 
   it("rejects missing steps", () => {
     const invalid = {
+      ...basePlan,
       plan: [
         {
           action: "Do something",
           why: "Because",
           filesInvolved: ["file.ts"],
           category: "security",
+          risk: "LOW",
         },
       ],
     };
@@ -124,6 +123,7 @@ describe("plan schema", () => {
 
   it("rejects empty steps array", () => {
     const invalid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
@@ -139,6 +139,7 @@ describe("plan schema", () => {
 
   it("rejects non-string steps", () => {
     const invalid = {
+      ...basePlan,
       plan: [
         {
           ...basePlan.plan[0],
@@ -149,6 +150,47 @@ describe("plan schema", () => {
 
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
       /expected string/i
+    );
+  });
+
+  it("rejects missing risk", () => {
+    const invalid = {
+      ...basePlan,
+      plan: [
+        {
+          action: "Do something",
+          why: "Because",
+          filesInvolved: ["file.ts"],
+          category: "security",
+          steps: ["step"],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /missing required key "risk"/i
+    );
+  });
+
+  it("allows noop plan with reason", () => {
+    const valid = {
+      ...basePlan,
+      noop: true,
+      reason: "No changes required",
+      plan: [],
+    };
+
+    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
+  });
+
+  it("rejects noop without reason", () => {
+    const invalid = {
+      noop: true,
+      plan: [],
+    };
+
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /missing required key "reason"/i
     );
   });
 });
