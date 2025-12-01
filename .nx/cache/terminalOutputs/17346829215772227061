@@ -1,302 +1,0 @@
-> jest --runInBand --passWithNoTests
-
-[1m[2mDetermining test suites to run...[22m[22m[999D[K
-[?2026h[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026l[K[1A[K[1A[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A  config-loader
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mreturns defaults when no user config present (3 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mmerges user overrides and resolves paths (6 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mthrows when user auditor path is missing (6 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects invalid JSON (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects unknown top-level keys (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2menforces auditor validator types (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrespects disabled auditors from user config (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2muser validators array still includes required defaults (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mauditor override merges missing fields and replaces arrays (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2muser can add new auditor not in defaults (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mauditor with enabled false still keeps custom validators (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mauditor names are case-sensitive and treated as distinct entries (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrelative paths resolve consistently for different notations (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mauditors must reference known validators (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mvalidators must have readable paths (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mempty user config does not mutate defaults and keeps defaults intact (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[K[1A[K[1A
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-loader.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026l[K[1A[K[1A[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A  plan schema
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects numeric risk (3 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects empty plan array (minItems) (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects plans with more than 3 items (maxItems)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mallows empty filesInvolved array (per schema)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects nested objects in filesInvolved[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects unknown fields in plan items[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[K[1A[K[1A
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mplan-schema.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[K[1A[K[1A[999D[K
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A  [2mconsole.log[22m
-    Running Driftlock audit for: security, complexity
-[2m[22m
-[2m      [2mat runAuditCommand ([22m[2msrc/cli/commands/audit.ts[2m:35:11)[22m[2m[22m
-
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[K[1A[K[1A[999D[K
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A  [2mconsole.log[22m
-    Running Driftlock audit for: security
-[2m[22m
-[2m      [2mat runAuditCommand ([22m[2msrc/cli/commands/audit.ts[2m:35:11)[22m[2m[22m
-
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[K[1A[K[1A[999D[K
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A  [2mconsole.log[22m
-    Running Driftlock audit for: security, complexity
-[2m[22m
-[2m      [2mat runAuditCommand ([22m[2msrc/cli/commands/audit.ts[2m:35:11)[22m[2m[22m
-
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[K[1A[K[1A[999D[K
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A  [2mconsole.log[22m
-    Running Driftlock audit for: security
-[2m[22m
-[2m      [2mat runAuditCommand ([22m[2msrc/cli/commands/audit.ts[2m:35:11)[22m[2m[22m
-
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026l[K[1A[K[1A[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A  audit command
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2muses enabled auditors when no args (9 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2muses provided single auditor[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mhandles comma-separated auditors[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mskips disabled auditors and throws when explicitly requested (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects unknown auditor names[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[K[1A[K[1A
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1maudit-command.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026l[K[1A[K[1A[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A  config schema
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2maccepts default config[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects missing required top-level keys (2 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects unknown top-level keys[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects auditor missing required fields (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects non-string validator paths[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects auditor validators with non-strings[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mallows partial user config when allowPartial is true[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[K[1A[K[1A
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mconfig-schema.test.ts[22m
-[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[?2026h[K[1A[K[1A
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026l[K[1A[K[1A[0m[7m[1m[32m PASS [39m[22m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A  schema-validator
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mpasses valid object[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects missing required key (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mrejects unknown key when additionalProperties is false (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mallows partial when allowPartial is true[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2menforces array item types[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A    [32m✓[39m [2mhandles $ref and patternProperties (1 ms)[22m
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[K[1A[K[1A
-
-[0m[7m[33m[1m RUNS [22m[39m[27m[0m [2mtests/[22m[1mschema-validator.test.ts[22m
-[?2026h[K[1A[K[1A[?2026l[999D[K[1mTest Suites: [22m[1m[32m5 passed[39m[22m, 5 total
-[1mTests:       [22m[1m[32m40 passed[39m[22m, 40 total
-[1mSnapshots:   [22m0 total
-[1mTime:[22m        0.321 s, estimated 1 s
-[2mRan all test suites[22m[2m.[22m
-[?2026h[?2026l
