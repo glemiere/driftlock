@@ -104,6 +104,16 @@ A suitable plan has **recognizable edges**.
 
 ---
 
+### 6. **The plan touches excluded paths**
+If the config provides an `exclude` list of files/folders, reject any plan item whose `filesInvolved` intersects with that list:
+
+- Exact matches to an excluded path  
+- Any path that lives under an excluded folder  
+
+If any item hits an excluded path, **reject the plan** and ask for a revision that respects the exclusions.
+
+---
+
 ## Acceptance Rules (Soft Constraints)
 
 A plan is generally acceptable when:

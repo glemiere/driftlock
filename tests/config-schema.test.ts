@@ -75,6 +75,19 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
+  it("rejects exclude when not array of strings", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      exclude: [1, 2],
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected string/i);
+  });
+
   it("allows partial user config when allowPartial is true", () => {
     const partial = {
       auditors: {

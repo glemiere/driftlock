@@ -27,6 +27,7 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.auditors.security.path)).toBe(true);
     expect(path.isAbsolute(config.validators.structure)).toBe(true);
     expect(path.isAbsolute(config.formatters.plan)).toBe(true);
+    expect(Array.isArray(config.exclude)).toBe(true);
   });
 
   it("merges user overrides and resolves paths", async () => {
@@ -346,6 +347,32 @@ describe("config-loader", () => {
       process.chdir(dir);
 
       await expect(loadConfig()).rejects.toThrow(/unknown validator "unknown"/i);
+    });
+  });
+
+  it("exclude array resolves paths relative to cwd and replaces defaults", async () => {
+    await withTempDir(async (dir) => {
+      const userConfig = {
+        exclude: ["./tmp", "../shared"],
+      };
+
+      await fs.mkdir(path.join(dir, "tmp"), { recursive: true });
+      await fs.mkdir(path.join(path.dirname(dir), "shared"), { recursive: true });
+
+      await fs.writeFile(
+        path.join(dir, "driftlock.config.json"),
+        JSON.stringify(userConfig, null, 2)
+      );
+
+      process.chdir(dir);
+
+      const config = await loadConfig();
+      expect(config.exclude.map((p) => fs.realpath(p))).toBeDefined();
+      const resolved = await Promise.all(config.exclude.map((p) => fs.realpath(p)));
+      expect(resolved).toEqual([
+        await fs.realpath(path.resolve(dir, "./tmp")),
+        await fs.realpath(path.resolve(dir, "../shared")),
+      ]);
     });
   });
 

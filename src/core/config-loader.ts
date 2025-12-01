@@ -17,6 +17,7 @@ export type DriftlockConfig = {
     plan: string;
     schema: string;
   };
+  exclude: string[];
 };
 
 type AuditorConfigOverride = Partial<AuditorConfig>;
@@ -28,6 +29,7 @@ type DriftlockConfigOverrides = {
     plan?: string;
     schema?: string;
   };
+  exclude?: string[];
 };
 
 type RawConfigObject = Record<string, unknown>;
@@ -159,6 +161,18 @@ function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockCo
   };
 }
 
+function normalizeDefaultExclude(root: RawConfigObject): string[] {
+  if (root.exclude === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(root.exclude) || !root.exclude.every((item) => typeof item === "string")) {
+    throw new Error('Default config "exclude" must be an array of strings when provided.');
+  }
+
+  return root.exclude.map((item) => path.resolve(PACKAGE_ROOT, item));
+}
+
 function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   validateAgainstSchema(raw, configSchemaJson, {
     allowPartial: false,
@@ -174,6 +188,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const auditorsObj = getSectionObject(root, "auditors", "Default");
   const validatorsObj = getSectionObject(root, "validators", "Default");
   const formattersObj = getSectionObject(root, "formatters", "Default");
+  const exclude = normalizeDefaultExclude(root);
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -183,6 +198,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     auditors,
     validators,
     formatters,
+    exclude,
   };
 }
 
@@ -330,6 +346,14 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
 
   if (root.formatters !== undefined) {
     overrides.formatters = buildUserFormatterOverrides(root.formatters, cwd);
+  }
+
+  if (root.exclude !== undefined) {
+    if (!Array.isArray(root.exclude) || !root.exclude.every((item) => typeof item === "string")) {
+      throw new Error('User config "exclude" must be an array of strings when provided.');
+    }
+
+    overrides.exclude = root.exclude.map((item) => path.resolve(cwd, item));
   }
 
   return overrides;

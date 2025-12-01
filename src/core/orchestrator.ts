@@ -1,18 +1,24 @@
 import type { DriftlockConfig } from "./config-loader";
+import { sleep } from "../utils/sleep";
 
 export async function runAudit(
   auditors: string[],
   config: DriftlockConfig
 ): Promise<void> {
-  for (const auditorName of auditors) {
-    const auditorConfig = config.auditors[auditorName];
+  console.log("Starting Driftlock orchestrator loop…");
+  console.log("Press Ctrl+C to exit.\n");
 
-    // TODO: load auditor prompt
-    // TODO: call plan formatter
-    // TODO: run structure validator
-    // TODO: run general validator
-    // TODO: executor will run here later
+  while (true) {
+    for (const auditorName of auditors) {
+      console.log(auditorName);
 
-    void auditorConfig;
+      // TODO: load auditor prompt
+      // TODO: call plan formatter
+      // TODO: run structure validator
+      // TODO: run general validator
+      // TODO: executor will run here later
+
+      await sleep(5000); // tiny delay so the loop doesn’t melt the CPU
+    }
   }
 }

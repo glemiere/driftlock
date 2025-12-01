@@ -43,6 +43,13 @@
         }
       },
       "required": ["plan", "schema"]
+    },
+    "exclude": {
+      "type": "array",
+      "description": "List of files or folders to exclude from plans.",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "required": ["auditors", "validators", "formatters"],
@@ -73,4 +80,3 @@
     }
   }
 }
-

@@ -54,5 +54,6 @@
   "formatters": {
     "plan": "./assets/formatters/plan.md",
     "schema": "./assets/schemas/plan.schema.json"
-  }
+  },
+  "exclude": []
 }

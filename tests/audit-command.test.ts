@@ -33,6 +33,7 @@ function createConfig(overrides: Partial<configLoader.DriftlockConfig> = {}): co
       schema: "/tmp/plan.schema.json",
       ...(overrides.formatters ?? {}),
     },
+    exclude: overrides.exclude ?? [],
   };
 }
 
