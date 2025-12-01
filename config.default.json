@@ -1,58 +1,58 @@
 {
-  "$schema": "./schemas/config.schema.json",
+  "$schema": "./assets/schemas/config.schema.json",
   "auditors": {
     "complexity": {
       "enabled": true,
-      "path": "./auditors/complexity.md",
+      "path": "./assets/auditors/complexity.md",
       "validators": ["structure", "general"]
     },
     "consistency": {
       "enabled": true,
-      "path": "./auditors/consistency.md",
+      "path": "./assets/auditors/consistency.md",
       "validators": ["structure", "general"]
     },
     "dependency": {
       "enabled": true,
-      "path": "./auditors/dependency.md",
+      "path": "./assets/auditors/dependency.md",
       "validators": ["structure", "general"]
     },
     "documentation": {
       "enabled": true,
-      "path": "./auditors/documentation.md",
+      "path": "./assets/auditors/documentation.md",
       "validators": ["structure", "general"]
     },
     "modularity": {
       "enabled": true,
-      "path": "./auditors/modularity.md",
+      "path": "./assets/auditors/modularity.md",
       "validators": ["structure", "general"]
     },
     "performance": {
       "enabled": true,
-      "path": "./auditors/performance.md",
+      "path": "./assets/auditors/performance.md",
       "validators": ["structure", "general"]
     },
     "quality": {
       "enabled": true,
-      "path": "./auditors/quality.md",
+      "path": "./assets/auditors/quality.md",
       "validators": ["structure", "general"]
     },
     "reliability": {
       "enabled": true,
-      "path": "./auditors/reliability.md",
+      "path": "./assets/auditors/reliability.md",
       "validators": ["structure", "general"]
     },
     "security": {
       "enabled": true,
-      "path": "./auditors/security.md",
+      "path": "./assets/auditors/security.md",
       "validators": ["structure", "general"]
     }
   },
   "validators": {
-    "structure": "./validators/structure.md",
-    "general": "./validators/general.md"
+    "structure": "./assets/validators/structure.md",
+    "general": "./assets/validators/general.md"
   },
   "formatters": {
-    "plan": "./formatters/plan.md",
-    "schema": "./schemas/plan.schema.json"
+    "plan": "./assets/formatters/plan.md",
+    "schema": "./assets/schemas/plan.schema.json"
   }
 }

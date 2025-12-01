@@ -1,7 +1,7 @@
 import path from "path";
 import { promises as fs, constants as fsConstants } from "fs";
 import defaultConfigJson from "../../config.default.json";
-import configSchemaJson from "../../schemas/config.schema.json";
+import configSchemaJson from "../../assets/schemas/config.schema.json";
 import { validateAgainstSchema } from "../utils/schema-validator";
 
 export type AuditorConfig = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import configSchema from "../schemas/config.schema.json";
+import configSchema from "../assets/schemas/config.schema.json";
 import defaultConfig from "../config.default.json";
 import { validateAgainstSchema } from "../src/utils/schema-validator";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import planSchema from "../schemas/plan.schema.json";
+import planSchema from "../assets/schemas/plan.schema.json";
 import { validateAgainstSchema } from "../src/utils/schema-validator";
 
 const schemaName = "Plan schema";
