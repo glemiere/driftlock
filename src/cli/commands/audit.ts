@@ -17,6 +17,16 @@ export async function runAuditCommand(
           .filter(([, auditor]) => auditor.enabled)
           .map(([name]) => name);
 
+  const invalidAuditors = auditors.filter(
+    (name) => !config.auditors[name] || config.auditors[name].enabled === false
+  );
+
+  if (invalidAuditors.length > 0) {
+    throw new Error(
+      `Unknown or disabled auditor(s): ${invalidAuditors.join(", ")}`
+    );
+  }
+
   if (auditors.length === 0) {
     console.log("No auditors selected or enabled to run.");
     return;
@@ -26,4 +36,3 @@ export async function runAuditCommand(
 
   await runAudit(auditors, config);
 }
-

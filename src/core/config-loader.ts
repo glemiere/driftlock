@@ -1,6 +1,8 @@
 import path from "path";
 import { promises as fs, constants as fsConstants } from "fs";
 import defaultConfigJson from "../../config.default.json";
+import configSchemaJson from "../../schemas/config.schema.json";
+import { validateAgainstSchema } from "../utils/schema-validator";
 
 export type AuditorConfig = {
   enabled: boolean;
@@ -58,29 +60,6 @@ function deepMerge<T>(base: T, override: unknown): T {
   }
 
   return override as T;
-}
-
-function ensureNoExtraTopLevelKeys(raw: RawConfigObject, source: string) {
-  const allowedKeys = new Set(["$schema", "auditors", "validators", "formatters"]);
-
-  for (const key of Object.keys(raw)) {
-    if (!allowedKeys.has(key)) {
-      throw new Error(
-        `${source} config has unknown top-level key "${key}". ` +
-          `Allowed keys are: auditors, validators, formatters, $schema.`
-      );
-    }
-  }
-}
-
-function assertConfigRoot(raw: unknown, source: string): RawConfigObject {
-  if (!isPlainObject(raw)) {
-    throw new Error(`${source} config must be a JSON object.`);
-  }
-
-  ensureNoExtraTopLevelKeys(raw, source);
-
-  return raw;
 }
 
 function getSectionObject(
@@ -180,7 +159,16 @@ function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockCo
 }
 
 function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
-  const root = assertConfigRoot(raw, "Default");
+  validateAgainstSchema(raw, configSchemaJson, {
+    allowPartial: false,
+    schemaName: "Default config",
+  });
+
+  if (!isPlainObject(raw)) {
+    throw new Error("Default config must be a JSON object.");
+  }
+
+  const root = raw;
 
   const auditorsObj = getSectionObject(root, "auditors", "Default");
   const validatorsObj = getSectionObject(root, "validators", "Default");
@@ -318,7 +306,16 @@ function buildUserFormatterOverrides(
 }
 
 function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverrides {
-  const root = assertConfigRoot(raw, "User");
+  validateAgainstSchema(raw, configSchemaJson, {
+    allowPartial: true,
+    schemaName: "User config",
+  });
+
+  if (!isPlainObject(raw)) {
+    throw new Error("User config must be a JSON object.");
+  }
+
+  const root = raw;
 
   const overrides: DriftlockConfigOverrides = {};
 
@@ -374,9 +371,24 @@ export async function loadConfig(): Promise<DriftlockConfig> {
   const userOverrides = normalizeUserConfig(rawUserConfig, process.cwd());
   const merged = deepMerge<DriftlockConfig>(defaultConfig, userOverrides);
 
+  ensureValidatorNamesExist(merged);
   await ensureAuditorPathsExist(merged);
 
   return merged;
+}
+
+function ensureValidatorNamesExist(config: DriftlockConfig): void {
+  const knownValidators = new Set(Object.keys(config.validators));
+
+  for (const [name, auditor] of Object.entries(config.auditors)) {
+    for (const validatorName of auditor.validators) {
+      if (!knownValidators.has(validatorName)) {
+        throw new Error(
+          `Auditor "${name}" references unknown validator "${validatorName}".`
+        );
+      }
+    }
+  }
 }
 
 async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {

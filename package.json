@@ -15,6 +15,7 @@
     "local-install": "command -v driftlock >/dev/null 2>&1 || npm link",
     "local-uninstall": "npm uninstall -g codex-driftlock || true",
     "dev": "npm run local-install && npm run build:watch",
+    "test": "node --test -r ts-node/register \"./tests/**/*.test.ts\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
