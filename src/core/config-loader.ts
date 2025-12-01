@@ -33,6 +33,7 @@ type DriftlockConfigOverrides = {
 type RawConfigObject = Record<string, unknown>;
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
+const REQUIRED_VALIDATORS = ["structure", "general"];
 
 function isPlainObject(value: unknown): value is RawConfigObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -365,13 +366,17 @@ export async function loadConfig(): Promise<DriftlockConfig> {
   const rawUserConfig = await readUserConfigFile(userConfigPath);
 
   if (rawUserConfig === undefined) {
+    enforceRequiredValidators(defaultConfig);
+    await ensureValidatorPathsExist(defaultConfig);
     return defaultConfig;
   }
 
   const userOverrides = normalizeUserConfig(rawUserConfig, process.cwd());
   const merged = deepMerge<DriftlockConfig>(defaultConfig, userOverrides);
 
+  enforceRequiredValidators(merged);
   ensureValidatorNamesExist(merged);
+  await ensureValidatorPathsExist(merged);
   await ensureAuditorPathsExist(merged);
 
   return merged;
@@ -391,6 +396,30 @@ function ensureValidatorNamesExist(config: DriftlockConfig): void {
   }
 }
 
+function enforceRequiredValidators(config: DriftlockConfig): void {
+  for (const auditor of Object.values(config.auditors)) {
+    const mergedValidators = [
+      ...REQUIRED_VALIDATORS,
+      ...auditor.validators.filter((v) => !REQUIRED_VALIDATORS.includes(v)),
+    ];
+    auditor.validators = dedupePreserveOrder(mergedValidators);
+  }
+}
+
+function dedupePreserveOrder(items: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    if (!seen.has(item)) {
+      seen.add(item);
+      result.push(item);
+    }
+  }
+
+  return result;
+}
+
 async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {
   const checks = Object.entries(config.auditors).map(async ([name, auditor]) => {
     try {
@@ -398,6 +427,20 @@ async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {
     } catch {
       throw new Error(
         `Auditor "${name}" path does not exist or is not readable: ${auditor.path}`
+      );
+    }
+  });
+
+  await Promise.all(checks);
+}
+
+async function ensureValidatorPathsExist(config: DriftlockConfig): Promise<void> {
+  const checks = Object.entries(config.validators).map(async ([name, validatorPath]) => {
+    try {
+      await fs.access(validatorPath, fsConstants.R_OK);
+    } catch {
+      throw new Error(
+        `Validator "${name}" path does not exist or is not readable: ${validatorPath}`
       );
     }
   });

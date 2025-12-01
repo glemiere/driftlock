@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "npmScope": "codex-driftlock",
+  "tasksRunnerOptions": {
+    "default": {
+      "runner": "nx/tasks-runners/default",
+      "options": {
+        "cacheableOperations": ["build", "test"],
+        "useDaemonProcess": false
+      }
+    }
+  },
+  "targetDefaults": {
+    "test": {
+      "dependsOn": ["^test"],
+      "inputs": ["default", "^default"],
+      "outputs": ["{workspaceRoot}/coverage"]
+    }
+  }
+}

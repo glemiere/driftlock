@@ -1,5 +1,4 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
+import { describe, expect, it } from "@jest/globals";
 import { validateAgainstSchema } from "../src/utils/schema-validator";
 
 const simpleSchema = {
@@ -12,103 +11,98 @@ const simpleSchema = {
   additionalProperties: false,
 };
 
-test("schema-validator passes valid object", () => {
-  assert.doesNotThrow(() =>
-    validateAgainstSchema(
-      { name: "alpha", enabled: true },
-      simpleSchema,
-      { schemaName: "Simple" }
-    )
-  );
-});
+describe("schema-validator", () => {
+  it("passes valid object", () => {
+    expect(() =>
+      validateAgainstSchema(
+        { name: "alpha", enabled: true },
+        simpleSchema,
+        { schemaName: "Simple" }
+      )
+    ).not.toThrow();
+  });
 
-test("schema-validator rejects missing required key", () => {
-  assert.throws(
-    () => validateAgainstSchema({ enabled: true }, simpleSchema, { schemaName: "Simple" }),
-    /missing required key "name"/i
-  );
-});
+  it("rejects missing required key", () => {
+    expect(() =>
+      validateAgainstSchema({ enabled: true }, simpleSchema, { schemaName: "Simple" })
+    ).toThrow(/missing required key "name"/i);
+  });
 
-test("schema-validator rejects unknown key when additionalProperties is false", () => {
-  assert.throws(
-    () =>
+  it("rejects unknown key when additionalProperties is false", () => {
+    expect(() =>
       validateAgainstSchema(
         { name: "alpha", extra: 1 },
         simpleSchema,
         { schemaName: "Simple" }
-      ),
-    /unknown key "extra"/i
-  );
-});
+      )
+    ).toThrow(/unknown key "extra"/i);
+  });
 
-test("schema-validator allows partial when allowPartial is true", () => {
-  assert.doesNotThrow(() =>
-    validateAgainstSchema({ enabled: false }, simpleSchema, {
-      schemaName: "Simple",
-      allowPartial: true,
-    })
-  );
-});
+  it("allows partial when allowPartial is true", () => {
+    expect(() =>
+      validateAgainstSchema({ enabled: false }, simpleSchema, {
+        schemaName: "Simple",
+        allowPartial: true,
+      })
+    ).not.toThrow();
+  });
 
-test("schema-validator enforces array item types", () => {
-  const arraySchema = {
-    type: "array",
-    items: { type: "string" },
-  };
+  it("enforces array item types", () => {
+    const arraySchema = {
+      type: "array",
+      items: { type: "string" },
+    };
 
-  assert.doesNotThrow(() =>
-    validateAgainstSchema(["a", "b"], arraySchema, { schemaName: "Array" })
-  );
+    expect(() =>
+      validateAgainstSchema(["a", "b"], arraySchema, { schemaName: "Array" })
+    ).not.toThrow();
 
-  assert.throws(
-    () => validateAgainstSchema(["a", 2], arraySchema, { schemaName: "Array" }),
-    /expected string/i
-  );
-});
+    expect(() =>
+      validateAgainstSchema(["a", 2], arraySchema, { schemaName: "Array" })
+    ).toThrow(/expected string/i);
+  });
 
-test("schema-validator handles $ref and patternProperties", () => {
-  const schemaWithRef = {
-    $defs: {
-      auditor: {
-        type: "object",
-        properties: {
-          enabled: { type: "boolean" },
-          path: { type: "string" },
+  it("handles $ref and patternProperties", () => {
+    const schemaWithRef = {
+      $defs: {
+        auditor: {
+          type: "object",
+          properties: {
+            enabled: { type: "boolean" },
+            path: { type: "string" },
+          },
+          required: ["enabled", "path"],
+          additionalProperties: false,
         },
-        required: ["enabled", "path"],
-        additionalProperties: false,
       },
-    },
-    type: "object",
-    properties: {
-      auditors: {
-        type: "object",
-        patternProperties: {
-          ".*": { $ref: "#/$defs/auditor" },
+      type: "object",
+      properties: {
+        auditors: {
+          type: "object",
+          patternProperties: {
+            ".*": { $ref: "#/$defs/auditor" },
+          },
+          additionalProperties: false,
         },
-        additionalProperties: false,
       },
-    },
-    required: ["auditors"],
-    additionalProperties: false,
-  };
+      required: ["auditors"],
+      additionalProperties: false,
+    };
 
-  assert.doesNotThrow(() =>
-    validateAgainstSchema(
-      { auditors: { security: { enabled: true, path: "./path" } } },
-      schemaWithRef,
-      { schemaName: "RefSchema" }
-    )
-  );
+    expect(() =>
+      validateAgainstSchema(
+        { auditors: { security: { enabled: true, path: "./path" } } },
+        schemaWithRef,
+        { schemaName: "RefSchema" }
+      )
+    ).not.toThrow();
 
-  assert.throws(
-    () =>
+    expect(() =>
       validateAgainstSchema(
         { auditors: { security: { enabled: true } } },
         schemaWithRef,
         { schemaName: "RefSchema" }
-      ),
-    /missing required key "path"/i
-  );
+      )
+    ).toThrow(/missing required key "path"/i);
+  });
 });
-

@@ -1,0 +1,146 @@
+{
+  "version": "6.0",
+  "nxVersion": "22.1.3",
+  "pathMappings": {},
+  "nxJsonPlugins": [],
+  "fileMap": {
+    "projectFileMap": {
+      "codex-driftlock": [
+        {
+          "file": ".gitignore",
+          "hash": "9479901510670154156"
+        },
+        {
+          "file": "README.md",
+          "hash": "10253896112586733118"
+        },
+        {
+          "file": "auditors/complexity.md",
+          "hash": "4822483100805806967"
+        },
+        {
+          "file": "auditors/consistency.md",
+          "hash": "11312561891743071236"
+        },
+        {
+          "file": "auditors/dependency.md",
+          "hash": "16096851676501666698"
+        },
+        {
+          "file": "auditors/documentation.md",
+          "hash": "16721150884383107943"
+        },
+        {
+          "file": "auditors/modularity.md",
+          "hash": "3235093671389660835"
+        },
+        {
+          "file": "auditors/performance.md",
+          "hash": "13267645577379015135"
+        },
+        {
+          "file": "auditors/quality.md",
+          "hash": "313006379302686130"
+        },
+        {
+          "file": "auditors/reliability.md",
+          "hash": "15332290864592174469"
+        },
+        {
+          "file": "auditors/security.md",
+          "hash": "10979215863948304994"
+        },
+        {
+          "file": "config.default.json",
+          "hash": "13745010474343433648"
+        },
+        {
+          "file": "formatters/plan.md",
+          "hash": "14246297728312659875"
+        },
+        {
+          "file": "jest.config.ts",
+          "hash": "1512311153146667586"
+        },
+        {
+          "file": "nx.json",
+          "hash": "1166693700717849697"
+        },
+        {
+          "file": "package-lock.json",
+          "hash": "9304953107442813976"
+        },
+        {
+          "file": "package.json",
+          "hash": "18255083533655312575"
+        },
+        {
+          "file": "project.json",
+          "hash": "14205811630871691262"
+        },
+        {
+          "file": "schemas/config.schema.json",
+          "hash": "13652714212446038508"
+        },
+        {
+          "file": "schemas/plan.schema.json",
+          "hash": "12406590944332946085"
+        },
+        {
+          "file": "src/cli/commands/audit.ts",
+          "hash": "15968659542557722765"
+        },
+        {
+          "file": "src/cli/index.ts",
+          "hash": "3505510242649788345"
+        },
+        {
+          "file": "src/core/config-loader.ts",
+          "hash": "11895828457400545168"
+        },
+        {
+          "file": "src/core/orchestrator.ts",
+          "hash": "12584220812075752661"
+        },
+        {
+          "file": "src/utils/schema-validator.ts",
+          "hash": "56623388171558359"
+        },
+        {
+          "file": "tests/audit-command.test.ts",
+          "hash": "2181203782221712830"
+        },
+        {
+          "file": "tests/config-loader.test.ts",
+          "hash": "9197435968861204555"
+        },
+        {
+          "file": "tests/config-schema.test.ts",
+          "hash": "9920997112800518352"
+        },
+        {
+          "file": "tests/plan-schema.test.ts",
+          "hash": "2956540577999302137"
+        },
+        {
+          "file": "tests/schema-validator.test.ts",
+          "hash": "10973600401708812950"
+        },
+        {
+          "file": "tsconfig.json",
+          "hash": "9374220090489266954"
+        },
+        {
+          "file": "validators/general.md",
+          "hash": "371254417916942430"
+        },
+        {
+          "file": "validators/structure.md",
+          "hash": "15236850730006393726"
+        }
+      ]
+    },
+    "nonProjectFiles": []
+  },
+  "externalNodesHash": "3244421341483603138"
+}
