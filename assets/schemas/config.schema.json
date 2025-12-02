@@ -68,6 +68,78 @@
       "items": {
         "type": "string"
       }
+    },
+    "commands": {
+      "type": "object",
+      "description": "Shell commands used for linting and testing.",
+      "additionalProperties": false,
+      "properties": {
+        "build": {
+          "type": "string",
+          "description": "Command to run build/typecheck."
+        },
+        "lint": {
+          "type": "string",
+          "description": "Command to run lint checks."
+        },
+        "test": {
+          "type": "string",
+          "description": "Command to run tests."
+        }
+      },
+      "required": ["build", "lint", "test"]
+    },
+    "enableBuild": {
+      "type": "boolean",
+      "description": "Whether build should be run during validation loops."
+    },
+    "enableLint": {
+      "type": "boolean",
+      "description": "Whether lint should be run during validation loops."
+    },
+    "enableTest": {
+      "type": "boolean",
+      "description": "Whether tests should be run during validation loops."
+    },
+    "maxValidationRetries": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum number of attempts allowed in the lint/test validation loop per step."
+    },
+    "maxRegressionAttempts": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum number of regression-fix attempts allowed per step."
+    },
+    "maxThreadLifetimeAttempts": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step."
+    },
+    "failurePolicy": {
+      "type": "object",
+      "description": "Policy governing how the orchestrator reacts to step failures.",
+      "additionalProperties": false,
+      "properties": {
+        "maxConsecutiveStepFailures": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Abort when this many consecutive step failures occur."
+        },
+        "abortOnAnyStepFailure": {
+          "type": "boolean",
+          "description": "If true, abort immediately on the first failed step."
+        },
+        "requireAtLeastOneStepSuccess": {
+          "type": "boolean",
+          "description": "If true, consider the run failed when no step succeeded."
+        }
+      },
+      "required": [
+        "maxConsecutiveStepFailures",
+        "abortOnAnyStepFailure",
+        "requireAtLeastOneStepSuccess"
+      ]
     }
   },
   "required": ["auditors", "validators", "formatters"],

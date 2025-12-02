@@ -24,6 +24,22 @@ export type DriftlockConfig = {
     schema: string;
     model?: string;
   };
+  commands: {
+    build: string;
+    lint: string;
+    test: string;
+  };
+  enableBuild: boolean;
+  enableLint: boolean;
+  enableTest: boolean;
+  maxValidationRetries: number;
+  maxRegressionAttempts: number;
+  maxThreadLifetimeAttempts: number;
+  failurePolicy: {
+    maxConsecutiveStepFailures: number;
+    abortOnAnyStepFailure: boolean;
+    requireAtLeastOneStepSuccess: boolean;
+  };
   exclude: string[];
   model?: string;
 };
@@ -33,10 +49,26 @@ type AuditorConfigOverride = Partial<AuditorConfig>;
 type DriftlockConfigOverrides = {
   auditors?: Record<string, AuditorConfigOverride>;
   validators?: Record<string, ValidatorConfig>;
+  commands?: {
+    build?: string;
+    lint?: string;
+    test?: string;
+  };
   formatters?: {
     plan?: string;
     schema?: string;
     model?: string;
+  };
+  enableBuild?: boolean;
+  enableLint?: boolean;
+  enableTest?: boolean;
+  maxValidationRetries?: number;
+  maxRegressionAttempts?: number;
+  maxThreadLifetimeAttempts?: number;
+  failurePolicy?: {
+    maxConsecutiveStepFailures?: number;
+    abortOnAnyStepFailure?: boolean;
+    requireAtLeastOneStepSuccess?: boolean;
   };
   exclude?: string[];
   model?: string;
@@ -204,6 +236,52 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const exclude = normalizeDefaultExclude(root);
   const model = typeof root.model === "string" ? root.model : undefined;
 
+  const commandsRoot = root.commands;
+  if (
+    commandsRoot === undefined ||
+    !isPlainObject(commandsRoot) ||
+    typeof commandsRoot.build !== "string" ||
+    typeof commandsRoot.lint !== "string" ||
+    typeof commandsRoot.test !== "string"
+  ) {
+    throw new Error(
+      'Default config "commands" must provide string "build", "lint", and "test" fields.'
+    );
+  }
+
+  const failurePolicyRoot = root.failurePolicy;
+  if (!isPlainObject(failurePolicyRoot)) {
+    throw new Error('Default config "failurePolicy" must be an object.');
+  }
+
+  const {
+    maxConsecutiveStepFailures,
+    abortOnAnyStepFailure,
+    requireAtLeastOneStepSuccess,
+  } = failurePolicyRoot as {
+    maxConsecutiveStepFailures?: unknown;
+    abortOnAnyStepFailure?: unknown;
+    requireAtLeastOneStepSuccess?: unknown;
+  };
+
+  if (typeof maxConsecutiveStepFailures !== "number") {
+    throw new Error(
+      'Default config "failurePolicy.maxConsecutiveStepFailures" must be a number.'
+    );
+  }
+
+  if (typeof abortOnAnyStepFailure !== "boolean") {
+    throw new Error(
+      'Default config "failurePolicy.abortOnAnyStepFailure" must be a boolean.'
+    );
+  }
+
+  if (typeof requireAtLeastOneStepSuccess !== "boolean") {
+    throw new Error(
+      'Default config "failurePolicy.requireAtLeastOneStepSuccess" must be a boolean.'
+    );
+  }
+
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
   const formatters = normalizeDefaultFormatters(formattersObj);
@@ -211,6 +289,27 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   return {
     auditors,
     validators,
+    commands: {
+      build: commandsRoot.build,
+      lint: commandsRoot.lint,
+      test: commandsRoot.test,
+    },
+    enableBuild: typeof root.enableBuild === "boolean" ? root.enableBuild : true,
+    enableLint: typeof root.enableLint === "boolean" ? root.enableLint : true,
+    enableTest: typeof root.enableTest === "boolean" ? root.enableTest : true,
+    maxValidationRetries:
+      typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 3,
+    maxRegressionAttempts:
+      typeof root.maxRegressionAttempts === "number" ? root.maxRegressionAttempts : 3,
+    maxThreadLifetimeAttempts:
+      typeof root.maxThreadLifetimeAttempts === "number"
+        ? root.maxThreadLifetimeAttempts
+        : 5,
+    failurePolicy: {
+      maxConsecutiveStepFailures,
+      abortOnAnyStepFailure,
+      requireAtLeastOneStepSuccess,
+    },
     formatters,
     exclude,
     model,
@@ -384,6 +483,118 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       throw new Error('User config "model" must be a string when provided.');
     }
     overrides.model = root.model;
+  }
+
+  if (root.enableBuild !== undefined) {
+    if (typeof root.enableBuild !== "boolean") {
+      throw new Error('User config "enableBuild" must be a boolean when provided.');
+    }
+    overrides.enableBuild = root.enableBuild;
+  }
+
+  if (root.commands !== undefined) {
+    if (!isPlainObject(root.commands)) {
+      throw new Error('User config "commands" must be an object when provided.');
+    }
+
+    const commandsRoot = root.commands as RawConfigObject;
+    const commandsOverride: DriftlockConfigOverrides["commands"] = {};
+
+    if ("lint" in commandsRoot) {
+      if (typeof commandsRoot.lint !== "string") {
+        throw new Error('User config "commands.lint" must be a string when provided.');
+      }
+      commandsOverride.lint = commandsRoot.lint;
+    }
+
+    if ("test" in commandsRoot) {
+      if (typeof commandsRoot.test !== "string") {
+        throw new Error('User config "commands.test" must be a string when provided.');
+      }
+      commandsOverride.test = commandsRoot.test;
+    }
+
+    overrides.commands = commandsOverride;
+  }
+
+  if (root.enableLint !== undefined) {
+    if (typeof root.enableLint !== "boolean") {
+      throw new Error('User config "enableLint" must be a boolean when provided.');
+    }
+    overrides.enableLint = root.enableLint;
+  }
+
+  if (root.enableTest !== undefined) {
+    if (typeof root.enableTest !== "boolean") {
+      throw new Error('User config "enableTest" must be a boolean when provided.');
+    }
+    overrides.enableTest = root.enableTest;
+  }
+
+  if (root.maxValidationRetries !== undefined) {
+    if (typeof root.maxValidationRetries !== "number") {
+      throw new Error(
+        'User config "maxValidationRetries" must be a number when provided.'
+      );
+    }
+    overrides.maxValidationRetries = root.maxValidationRetries;
+  }
+
+  if (root.maxRegressionAttempts !== undefined) {
+    if (typeof root.maxRegressionAttempts !== "number") {
+      throw new Error(
+        'User config "maxRegressionAttempts" must be a number when provided.'
+      );
+    }
+    overrides.maxRegressionAttempts = root.maxRegressionAttempts;
+  }
+
+  if (root.maxThreadLifetimeAttempts !== undefined) {
+    if (typeof root.maxThreadLifetimeAttempts !== "number") {
+      throw new Error(
+        'User config "maxThreadLifetimeAttempts" must be a number when provided.'
+      );
+    }
+    overrides.maxThreadLifetimeAttempts = root.maxThreadLifetimeAttempts;
+  }
+
+  if (root.failurePolicy !== undefined) {
+    if (!isPlainObject(root.failurePolicy)) {
+      throw new Error('User config "failurePolicy" must be an object when provided.');
+    }
+
+    const policyRoot = root.failurePolicy as RawConfigObject;
+    const policyOverride: DriftlockConfigOverrides["failurePolicy"] = {};
+
+    if ("maxConsecutiveStepFailures" in policyRoot) {
+      if (typeof policyRoot.maxConsecutiveStepFailures !== "number") {
+        throw new Error(
+          'User config "failurePolicy.maxConsecutiveStepFailures" must be a number when provided.'
+        );
+      }
+      policyOverride.maxConsecutiveStepFailures = policyRoot.maxConsecutiveStepFailures;
+    }
+
+    if ("abortOnAnyStepFailure" in policyRoot) {
+      if (typeof policyRoot.abortOnAnyStepFailure !== "boolean") {
+        throw new Error(
+          'User config "failurePolicy.abortOnAnyStepFailure" must be a boolean when provided.'
+        );
+      }
+      policyOverride.abortOnAnyStepFailure = policyRoot.abortOnAnyStepFailure;
+    }
+
+    if ("requireAtLeastOneStepSuccess" in policyRoot) {
+      if (typeof policyRoot.requireAtLeastOneStepSuccess !== "boolean") {
+        throw new Error(
+          'User config "failurePolicy.requireAtLeastOneStepSuccess" must be a boolean when provided.'
+        );
+      }
+      policyOverride.requireAtLeastOneStepSuccess =
+        policyRoot.requireAtLeastOneStepSuccess;
+    }
+
+    overrides.failurePolicy = policyOverride;
   }
 
   return overrides;

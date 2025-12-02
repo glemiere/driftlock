@@ -28,6 +28,18 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.plan)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
+    expect(typeof config.commands.build).toBe("string");
+    expect(typeof config.commands.lint).toBe("string");
+    expect(typeof config.commands.test).toBe("string");
+    expect(typeof config.enableBuild).toBe("boolean");
+    expect(typeof config.enableLint).toBe("boolean");
+    expect(typeof config.enableTest).toBe("boolean");
+    expect(typeof config.maxValidationRetries).toBe("number");
+    expect(typeof config.maxRegressionAttempts).toBe("number");
+    expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
+    expect(typeof config.failurePolicy.maxConsecutiveStepFailures).toBe("number");
+    expect(typeof config.failurePolicy.abortOnAnyStepFailure).toBe("boolean");
+    expect(typeof config.failurePolicy.requireAtLeastOneStepSuccess).toBe("boolean");
   });
 
   it("merges user overrides and resolves paths", async () => {

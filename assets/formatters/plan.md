@@ -5,7 +5,7 @@ GLOBAL PLAN FORMATTER GUIDANCE
 You produce a JSON plan described by the provided plan.schema.json.
 
 High-level intent:
-- Analyze the codebase for structural, stylistic, architectural, or correctness issues.
+- Analyze the codebase thoroughly for structural, stylistic, architectural, or correctness issues that relate to the auditor's goals.
 - Select only the 1–3 most important actions.
 - Each action must be evidence-based with explicit file references.
 - Plans must be concrete, behavior-preserving unless stated otherwise.

@@ -88,6 +88,52 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
+  it("rejects commands with non-string fields", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      commands: {
+        build: 123,
+        lint: "npm run lint",
+        test: "npm test",
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected string/i);
+  });
+
+  it("rejects enableBuild when not boolean", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      enableBuild: "true",
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected boolean/i);
+  });
+
+  it("rejects failurePolicy missing required fields", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      failurePolicy: {
+        abortOnAnyStepFailure: false,
+        requireAtLeastOneStepSuccess: true,
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/missing required key "maxConsecutiveStepFailures"/i);
+  });
+
   it("allows partial user config when allowPartial is true", () => {
     const partial = {
       auditors: {
@@ -96,6 +142,22 @@ describe("config schema", () => {
           path: "./auditors/security.md",
           validators: ["plan"],
         },
+      },
+      commands: {
+        build: "npm run build",
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      enableBuild: false,
+      enableLint: false,
+      enableTest: true,
+      maxValidationRetries: 5,
+      maxRegressionAttempts: 2,
+      maxThreadLifetimeAttempts: 4,
+      failurePolicy: {
+        maxConsecutiveStepFailures: 2,
+        abortOnAnyStepFailure: false,
+        requireAtLeastOneStepSuccess: true,
       },
     };
 

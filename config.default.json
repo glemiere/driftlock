@@ -1,6 +1,22 @@
 {
   "$schema": "./assets/schemas/config.schema.json",
   "model": "gpt-5.1-codex-max",
+  "commands": {
+    "build": "yarn build",
+    "test": "yarn test",
+    "lint": "yarn lint"
+  },
+  "enableBuild": true,
+  "enableLint": true,
+  "enableTest": true,
+  "maxValidationRetries": 3,
+  "maxRegressionAttempts": 3,
+  "maxThreadLifetimeAttempts": 5,
+  "failurePolicy": {
+    "maxConsecutiveStepFailures": 1,
+    "abortOnAnyStepFailure": false,
+    "requireAtLeastOneStepSuccess": true
+  },
   "auditors": {
     "complexity": {
       "enabled": true,
