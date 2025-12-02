@@ -38,7 +38,7 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
   try {
     const thread = await startPlanThread(model, workingDirectory);
     const latestAgentMessage = await streamPlanEvents(
-      thread.runStreamed,
+      thread.runStreamed.bind(thread),
       combinedPrompt,
       planSchema,
       auditorName,

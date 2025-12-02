@@ -1,3 +1,4 @@
+import path from "path";
 import { readJsonFile, readTextFile } from "../../utils/fs";
 import { validateAgainstSchema } from "../../utils/schema-validator";
 import {
@@ -16,6 +17,7 @@ export type ValidatePlanOptions = {
   validateSchemaPath: string;
   model: string;
   workingDirectory: string;
+  excludePaths?: string[];
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -35,6 +37,7 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
     validateSchemaPath,
     model,
     workingDirectory,
+    excludePaths = [],
     onEvent,
     onInfo,
   } = options;
@@ -53,6 +56,18 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
   });
   if (!schemaResult.valid) {
     return schemaResult;
+  }
+
+  const exclusionResult = ensureNoExcludedPaths({
+    plan: parsed.value,
+    excludedPaths: excludePaths,
+    workingDirectory,
+    auditorName,
+    validatorName,
+    onInfo,
+  });
+  if (!exclusionResult.valid) {
+    return exclusionResult;
   }
 
   return runValidator({
@@ -147,6 +162,55 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
     onInfo?.(`[${auditorName} → ${validatorName}] validation failed: ${message}`);
     return { valid: false, reason: message };
   }
+}
+
+type ExclusionContext = {
+  plan: unknown;
+  excludedPaths?: string[];
+  workingDirectory: string;
+  auditorName: string;
+  validatorName: string;
+  onInfo?: (message: string) => void;
+};
+
+function ensureNoExcludedPaths(context: ExclusionContext): ValidatePlanResult {
+  const { plan, excludedPaths, workingDirectory, auditorName, validatorName, onInfo } = context;
+  if (!excludedPaths || excludedPaths.length === 0) {
+    return { valid: true };
+  }
+
+  const normalizedExcluded = excludedPaths.map((p) => path.resolve(p));
+  const planItems = Array.isArray((plan as { plan?: unknown }).plan)
+    ? ((plan as { plan: unknown[] }).plan as unknown[])
+    : [];
+
+  const hits: string[] = [];
+
+  for (const item of planItems) {
+    const files = (item as { filesInvolved?: unknown }).filesInvolved;
+    if (!Array.isArray(files)) continue;
+
+    for (const file of files) {
+      if (typeof file !== "string") continue;
+      const absoluteFile = path.resolve(workingDirectory, file);
+      const touchesExcluded = normalizedExcluded.some(
+        (excludedPath) =>
+          absoluteFile === excludedPath || absoluteFile.startsWith(`${excludedPath}${path.sep}`)
+      );
+      if (touchesExcluded) {
+        hits.push(file);
+      }
+    }
+  }
+
+  if (hits.length > 0) {
+    const uniqueHits = Array.from(new Set(hits));
+    const reason = `Plan touches excluded paths: ${uniqueHits.join(", ")}`;
+    onInfo?.(`[${auditorName} → ${validatorName}] ${reason}`);
+    return { valid: false, reason };
+  }
+
+  return { valid: true };
 }
 
 function parsePlan(plan: unknown): { ok: true; value: unknown } | { ok: false; error: string } {

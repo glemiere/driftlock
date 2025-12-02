@@ -1,7 +1,7 @@
 import path from "path";
 import { tui } from "../cli/tui";
 import { resolveModel } from "./model-resolver";
-import { buildPlan, validatePlan } from "./codex";
+import { buildPlan, validatePlan } from "./codex/index";
 import type { DriftlockConfig } from "./config-loader";
 import { readJsonFile, readTextFile } from "../utils/fs";
 
@@ -145,6 +145,7 @@ async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> 
     planSchemaPath: config.formatters.schema,
     validateSchemaPath: context.validateSchemaPath,
     model: resolveModel(config, auditorName, validatorName),
+    excludePaths: config.exclude,
     workingDirectory: process.cwd(),
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
