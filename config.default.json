@@ -65,7 +65,8 @@
     }
   },
   "validators": {
-    "plan": { "path": "./assets/validators/plan.md" }
+    "plan": { "path": "./assets/validators/plan.md" },
+    "execute-step": { "path": "./assets/validators/execute-step.md" }
   },
   "formatters": {
     "plan": "./assets/formatters/plan.md",
