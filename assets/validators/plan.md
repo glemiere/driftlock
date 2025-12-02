@@ -161,6 +161,7 @@ When rejecting, request:
 - “Migrate the project to a new framework.”  
 - “Simplify everything under `/services`.”  
 - “Cleanup any unclear logic in the controllers.”  
+- "Introduce a new dependency to the project."
 
 These are open-ended, high-risk, or transformative.
 

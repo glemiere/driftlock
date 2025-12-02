@@ -1,5 +1,5 @@
-import { BOX, COLORS, ESC, FOOTER_LABEL, LAYOUT, RESET } from "./constants";
-import { initBorders, paintBorder } from "./border";
+import { BOX, COLORS, ESC, FOOTER_LABEL, LAYOUT, RESET, BOLD } from "./constants";
+import { initBorders, paintBorderString } from "./border";
 import { computeLayout, clampOffsets, paneView, visibleRows } from "./layout";
 import { state } from "./state";
 import { padLine, formatElapsed, visibleLength } from "./text";
@@ -10,7 +10,7 @@ function renderHeader(innerWidth: number): string {
   const base = `${COLORS.title}${state.title}${RESET}${info}   ${elapsed}`;
 
   if (state.exitRequested) {
-    const exitText = `${COLORS.error}● exit pending${RESET}`;
+    const exitText = `${COLORS.error}${BOLD}● EXIT PENDING${RESET}`;
     const padding = Math.max(1, innerWidth - visibleLength(base) - visibleLength(exitText));
     return `${base}${" ".repeat(padding)}${exitText}`;
   }
@@ -71,8 +71,8 @@ export function render(): void {
   if (!state.active) return;
   state.rendering = true;
   const frame = renderFrame();
-  process.stdout.write(frame);
-  paintBorder(state.hue);
+  const border = paintBorderString(state.hue);
+  process.stdout.write(frame + border);
   state.rendering = false;
 }
 

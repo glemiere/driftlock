@@ -1,5 +1,6 @@
 export const ESC = "\u001b[";
 export const RESET = `${ESC}0m`;
+export const BOLD = `${ESC}1m`;
 
 export const COLORS = {
   title: `${ESC}96m`,

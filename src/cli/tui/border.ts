@@ -81,7 +81,11 @@ export function initBorders(width: number, height: number): void {
 }
 
 export function paintBorder(baseHue: number): void {
-  if (!state.enabled || state.borderSegments.length === 0) return;
+  paintBorderString(baseHue, true);
+}
+
+export function paintBorderString(baseHue: number, write = false): string {
+  if (!state.enabled || state.borderSegments.length === 0) return "";
   const total = state.borderLength || 1;
   const step = 360 / total;
   let out = "";
@@ -91,18 +95,25 @@ export function paintBorder(baseHue: number): void {
       const idxGlobal = offset + idx;
       const hue = (baseHue + idxGlobal * step) % 360;
       const [r, g, b] = hslToRgb(hue, 1, 0.5);
-      out += `${ESC}${coord.row};${coord.col}H${ESC}38;2;${r};${g};${b}m${coord.char}${RESET}`;
+      const color = state.exitRequested ? `${ESC}38;2;255;255;255m` : `${ESC}38;2;${r};${g};${b}m`;
+      out += `${ESC}${coord.row};${coord.col}H${color}${coord.char}${RESET}`;
     });
     offset += segment.length;
   });
-  ttyWrite(out);
+  if (write) {
+    ttyWrite(out);
+  }
+  return out;
 }
 
 export function startRainbowBorder(onTick: () => void): void {
   if (!state.enabled || state.borderTimer) return;
+  const intervalMs = 60; // smoother animation
+  const hueStep = 2; // smaller increments for smoothness
+
   state.borderTimer = setInterval(() => {
     if (!state.active) return;
-    state.hue = (state.hue + 8) % 360;
+    state.hue = (state.hue + hueStep) % 360;
     onTick();
-  }, 120);
+  }, intervalMs);
 }
