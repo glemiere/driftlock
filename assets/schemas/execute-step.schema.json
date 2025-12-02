@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/execute-step.schema.json",
+  "title": "Execute Plan Step Result",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "success": {
+      "type": "boolean",
+      "description": "Whether the executor successfully applied the step."
+    },
+    "summary": {
+      "type": "string",
+      "description": "Human-readable summary of what was done or why it failed.",
+      "minLength": 1
+    },
+    "details": {
+      "type": "string",
+      "description": "Optional extended details about the execution.",
+      "minLength": 1
+    },
+    "filesTouched": {
+      "type": "array",
+      "description": "All files that were inspected or modified during execution.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "filesWritten": {
+      "type": "array",
+      "description": "Files that were actually written or patched.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "patch": {
+      "type": "string",
+      "description": "Unified diff patch representing the changes for this step.",
+      "minLength": 1
+    },
+    "mode": {
+      "type": "string",
+      "description": "Execution mode for this step.",
+      "enum": ["apply", "fix_regression"]
+    }
+  },
+  "required": ["success", "summary", "mode"]
+}
+
