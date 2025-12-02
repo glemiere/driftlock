@@ -86,7 +86,7 @@ async function ensurePlanSchemaValid(context: PlanSchemaContext): Promise<Valida
     return { valid: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    onInfo?.(`[${auditorName} → ${validatorName}] plan schema validation failed: ${message}`);
+    onInfo?.(`[${auditorName}] plan schema validation failed: ${message}`);
     return { valid: false, reason: message };
   }
 }
