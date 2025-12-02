@@ -1,7 +1,6 @@
 import { readJsonFile, readTextFile } from "../../utils/fs";
 import { validateAgainstSchema } from "../../utils/schema-validator";
 import {
-  colorKeyForEvent,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -194,7 +193,7 @@ async function collectValidationResult(
   for await (const event of events) {
     const formatted = formatEvent(contextLabel, event);
     if (formatted && onEvent) {
-      onEvent(formatted, colorKeyForEvent(formatted));
+      onEvent(formatted, formatted);
     }
 
     const text = extractAgentText(event);

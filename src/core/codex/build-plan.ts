@@ -1,7 +1,6 @@
 import { readTextFile } from "../../utils/fs";
 import type { ThreadEvent } from "@openai/codex-sdk";
 import {
-  colorKeyForEvent,
   combinePrompts,
   dynamicImport,
   extractAgentText,
@@ -83,7 +82,7 @@ async function streamPlanEvents(
   for await (const event of events as AsyncGenerator<ThreadEvent>) {
     const formatted = formatEvent(auditorName, event);
     if (formatted && onEvent) {
-      onEvent(formatted, colorKeyForEvent(formatted));
+      onEvent(formatted, formatted);
     }
 
     const text = extractAgentText(event);
