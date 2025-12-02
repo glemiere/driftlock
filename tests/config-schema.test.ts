@@ -88,6 +88,22 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
+  it("accepts validators map with multiple entries", () => {
+    const valid = {
+      auditors: {},
+      validators: {
+        plan: { path: "./validators/plan.md" },
+        "execute-step": { path: "./validators/execute-step.md" },
+        step: { path: "./validators/step.md" },
+      },
+      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+    };
+
+    expect(() =>
+      validateAgainstSchema(valid, configSchema, { schemaName, allowPartial: true })
+    ).not.toThrow();
+  });
+
   it("rejects commands with non-string fields", () => {
     const invalid = {
       auditors: {},

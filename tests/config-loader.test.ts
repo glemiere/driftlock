@@ -26,6 +26,8 @@ describe("config-loader", () => {
     expect(config.auditors.security.enabled).toBe(true);
     expect(path.isAbsolute(config.auditors.security.path)).toBe(true);
     expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
+    expect(path.isAbsolute(config.validators["execute-step"].path)).toBe(true);
+    expect(path.isAbsolute(config.validators.step.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.plan)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
     expect(typeof config.commands.build).toBe("string");
@@ -73,6 +75,8 @@ describe("config-loader", () => {
       );
       expect(config.auditors.complexity.enabled).toBe(true);
       expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
+      expect(path.isAbsolute(config.validators["execute-step"].path)).toBe(true);
+      expect(path.isAbsolute(config.validators.step.path)).toBe(true);
     });
   });
 
