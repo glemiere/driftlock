@@ -140,6 +140,27 @@ Executors must either:
 - provide a patch with real edits, or
 - report `success: false` with a clear reason.
 
+### 8. Step Not Implemented (Apply Mode Only)
+
+Applies only when:
+
+- `mode` is `"apply"`, and
+- `success` is `true`.
+
+Reject when the patch does **not** meaningfully implement the step description, including cases where:
+
+- required additions/removals/modifications from the step are missing or only partially done,
+- the patch performs only superficial edits (whitespace, unrelated formatting/comments),
+- the requested transformation (rename, extraction, removal, etc.) is absent or incomplete.
+
+Examples:
+
+- Step: “Rename foo to bar in serviceA.ts.” Patch never renames `foo`.
+- Step: “Extract helper X into a new function.” Patch adds a stub but leaves inline logic unchanged.
+- Step: “Remove dead code block in module Y.” Patch removes something else or only part of the block.
+
+If the step intent is not fully satisfied, reject with a short reason that can be fed back into `fix_regression`.
+
 ---
 
 ## Soft Acceptance Guidelines
