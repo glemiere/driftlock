@@ -164,3 +164,32 @@ function logPlan(auditorName: string, plan: unknown): void {
   const pretty = typeof plan === "string" ? plan : JSON.stringify(plan, null, 2);
   tui.logLeft(`[${auditorName}] plan:\n${pretty}`, "success");
 }
+
+export class ThreadAttemptTracker {
+  private attempts = 0;
+  private readonly maxAttempts: number;
+
+  constructor(maxAttempts: number) {
+    if (!Number.isFinite(maxAttempts) || maxAttempts < 1) {
+      throw new Error("maxAttempts must be a positive integer");
+    }
+    this.maxAttempts = Math.floor(maxAttempts);
+  }
+
+  /**
+   * Records an attempt and returns true if another executor call is permitted.
+   * When the cap is reached, returns false and does not allow further attempts.
+   */
+  recordAttempt(): boolean {
+    this.attempts += 1;
+    return this.attempts <= this.maxAttempts;
+  }
+
+  getAttemptCount(): number {
+    return this.attempts;
+  }
+
+  isExhausted(): boolean {
+    return this.attempts >= this.maxAttempts;
+  }
+}
