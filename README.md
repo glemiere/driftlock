@@ -13,9 +13,13 @@
     - [Config Schema](#config-schema)
 
 # Overview
-Driftlock is the implementation of a new type of tooling: an AI Orchestrator designed to fight entropy in your codebase, implemented for as a standalone tool following the POC and research described in this article published in Q4 2025: [Software and Thermodynamics: A Change of Paradigm in the Era of AI](https://will.lemiere.io/articles/software-and-thermodynamics-a-change-of-paradigm-in-the-era-of-ai).
+Driftlock is the implementation of a new type of tooling: an AI Orchestrator designed to fight entropy in your codebase, implemented as a standalone tool following the POC and research described in this article published in Q4 2025: [Software and Thermodynamics: A Change of Paradigm in the Era of AI](https://will.lemiere.io/articles/software-and-thermodynamics-a-change-of-paradigm-in-the-era-of-ai).
 
 # Getting Started
+
+## Prerequisites
+
+As of today, you need to have both the git CLI and the codex CLI installed on your machine to be able to run this software. Later, I will add more frictionless and diverse ways to authenticate with these two dependencies as needed. If you need that, feel free to contribute.
 
 ## Config
 
@@ -188,3 +192,6 @@ These schemas complement the human-readable Markdown formatters by providing str
   - `formatters.plan`, `formatters.schema`, optional `model`  
   - top-level `exclude` array and optional `model`  
 - Editors and tooling can use this schema (via the `$schema` field in `config.default.json` or your own `driftlock.config.json`) to provide validation and autocomplete for configuration changes.
+
+######
+Developed with ❤️ by @glemiere.
