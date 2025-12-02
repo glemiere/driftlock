@@ -5,7 +5,9 @@ import { validatePlan } from "../src/core/codex";
 const mockRunStreamed = jest.fn();
 
 jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual("../src/core/codex/utils");
+  const actual = jest.requireActual<typeof import("../src/core/codex/utils")>(
+    "../src/core/codex/utils"
+  );
   return {
     ...actual,
     dynamicImport: jest.fn(async () => ({

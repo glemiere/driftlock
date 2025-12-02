@@ -36,7 +36,8 @@ function scheduleRightFlush(): void {
 }
 
 function push(side: "left" | "right", message: string, colorKey?: keyof typeof COLORS): void {
-  const colorPrefix = colorKey && COLORS[colorKey] ? COLORS[colorKey] : "";
+  const effectiveColor = colorKey ?? (side === "right" ? "right" : undefined);
+  const colorPrefix = effectiveColor && COLORS[effectiveColor] ? COLORS[effectiveColor] : "";
   const coloredMessage = colorPrefix ? `${colorPrefix}${message}${RESET}` : message;
 
   const mirrorToStdout = () => {
@@ -93,8 +94,8 @@ export function logLeft(message: string, colorKey?: keyof typeof COLORS): void {
   push("left", message, colorKey);
 }
 
-export function logRight(message: string): void {
-  push("right", message);
+export function logRight(message: string, colorKey?: keyof typeof COLORS): void {
+  push("right", message, colorKey);
 }
 
 export function updateLeft(message: string): void {

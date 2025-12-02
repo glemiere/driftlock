@@ -13,20 +13,41 @@ export function wrapLine(text: string, width: number, tokenPattern: RegExp): str
   const lines: string[] = [];
   let current: string[] = [];
   let visible = 0;
+  let activeAnsi = "";
+
+  const ensureReset = (line: string): string => {
+    return line.includes(RESET) ? line : `${line}${RESET}`;
+  };
+
+  const flushLine = () => {
+    const line = current.join("");
+    lines.push(activeAnsi ? ensureReset(line) : line);
+    current = [];
+    visible = 0;
+    if (activeAnsi) {
+      current.push(activeAnsi);
+    }
+  };
 
   for (const token of tokens) {
     const isEsc = token.startsWith("\x1b[");
     const inc = isEsc ? 0 : 1;
     if (visible + inc > width && current.length > 0) {
-      lines.push(current.join(""));
-      current = [];
-      visible = 0;
+      flushLine();
     }
     current.push(token);
+    if (isEsc) {
+      if (token === RESET) {
+        activeAnsi = "";
+      } else if (/^\x1b\[[0-9;]*m$/.test(token)) {
+        activeAnsi = token;
+      }
+    }
     visible += inc;
   }
 
-  lines.push(current.join(""));
+  const finalLine = current.join("");
+  lines.push(activeAnsi ? ensureReset(finalLine) : finalLine);
   return lines;
 }
 

@@ -37,14 +37,14 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
 
   try {
     const thread = await startPlanThread(model, workingDirectory);
-    const latestAgentMessage = await streamPlanEvents(
+    const { latestAgentMessage, finalLogged } = await streamPlanEvents(
       thread.runStreamed.bind(thread),
       combinedPrompt,
       planSchema,
       auditorName,
       onEvent
     );
-    return finalizePlan(latestAgentMessage, auditorName, onEvent);
+    return finalizePlan(latestAgentMessage, finalLogged, auditorName, onEvent);
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[${auditorName}] Codex error: ${message}`);
@@ -75,32 +75,37 @@ async function streamPlanEvents(
   planSchema: unknown,
   auditorName: string,
   onEvent?: (formatted: string, colorKey?: string) => void
-): Promise<string | null> {
+): Promise<{ latestAgentMessage: string | null; finalLogged: boolean }> {
   const { events } = await runStreamed(prompt, { outputSchema: planSchema });
   let latestAgentMessage: string | null = null;
+  let finalLogged = false;
 
   for await (const event of events as AsyncGenerator<ThreadEvent>) {
     const formatted = formatEvent(auditorName, event);
     if (formatted && onEvent) {
-      onEvent(formatted, formatted);
+      onEvent(formatted);
     }
 
     const text = extractAgentText(event);
     if (text) {
       latestAgentMessage = text;
+      if (event.type === "item.completed" && event.item.type === "agent_message") {
+        finalLogged = true;
+      }
     }
   }
 
-  return latestAgentMessage;
+  return { latestAgentMessage, finalLogged };
 }
 
 function finalizePlan(
   latestAgentMessage: string | null,
+  finalLogged: boolean,
   auditorName: string,
-  onEvent?: (formatted: string) => void
+  onEvent?: (formatted: string, colorKey?: string) => void
 ): unknown {
-  if (latestAgentMessage) {
-    onEvent?.(`[${auditorName}] final response:\n${latestAgentMessage}`);
+  if (latestAgentMessage && !finalLogged) {
+    onEvent?.(`[${auditorName}] FINAL RESPONSE:\n${latestAgentMessage}`, "success");
   }
 
   const parsed = parseJsonSafe(latestAgentMessage);
