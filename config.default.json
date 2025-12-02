@@ -2,9 +2,9 @@
   "$schema": "./assets/schemas/config.schema.json",
   "model": "gpt-5.1-codex-max",
   "commands": {
-    "build": "yarn build",
-    "test": "yarn test",
-    "lint": "yarn lint"
+    "build": "npm build",
+    "test": "npm test",
+    "lint": "npm lint"
   },
   "enableBuild": true,
   "enableLint": true,
