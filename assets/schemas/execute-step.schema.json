@@ -46,6 +46,13 @@
       "enum": ["apply", "fix_regression"]
     }
   },
-  "required": ["success", "summary", "mode"]
+  "required": [
+    "success",
+    "summary",
+    "mode",
+    "details",
+    "filesTouched",
+    "filesWritten",
+    "patch"
+  ]
 }
-

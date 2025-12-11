@@ -7,6 +7,10 @@ const schemaName = "Execute step schema";
 const baseResult = {
   success: true,
   summary: "Applied step patch successfully.",
+  details: "Extra detail",
+  filesTouched: ["src/index.ts"],
+  filesWritten: ["src/index.ts"],
+  patch: "--- a/src/index.ts\n+++ b/src/index.ts\n@@\n-foo\n+bar\n",
   mode: "apply",
 };
 
@@ -21,9 +25,10 @@ describe("execute-step schema", () => {
     const full = {
       ...baseResult,
       details: "Extra execution detail.",
-      filesTouched: ["src/index.ts"],
-      filesWritten: ["src/index.ts"],
-      patch: "--- a/src/index.ts\n+++ b/src/index.ts\n@@\n-foo\n+bar\n",
+      filesTouched: ["src/index.ts", "src/other.ts"],
+      filesWritten: ["src/index.ts", "src/other.ts"],
+      patch:
+        "--- a/src/index.ts\n+++ b/src/index.ts\n@@\n-foo\n+bar\n--- a/src/other.ts\n+++ b/src/other.ts\n@@\n-a\n+b\n",
     };
 
     expect(() =>
@@ -44,7 +49,7 @@ describe("execute-step schema", () => {
 
   it("rejects missing summary", () => {
     const { summary, ...rest } = baseResult;
-    const invalid = rest;
+    const invalid = rest as unknown;
 
     expect(() =>
       validateAgainstSchema(invalid, executeStepSchema, { schemaName })
@@ -106,4 +111,3 @@ describe("execute-step schema", () => {
     ).toThrow(/expected string/i);
   });
 });
-

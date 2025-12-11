@@ -13,6 +13,7 @@ const basePlan = {
       why: "Because it's needed",
       filesInvolved: ["file.ts"],
       steps: ["step"],
+      supportiveEvidence: ["file.ts: evidence of problem"],
       risk: "LOW",
       category: "security",
     },
@@ -161,6 +162,7 @@ describe("plan schema", () => {
           action: "Do something",
           why: "Because",
           filesInvolved: ["file.ts"],
+          supportiveEvidence: ["file.ts: evidence"],
           category: "security",
           steps: ["step"],
         },
@@ -192,5 +194,21 @@ describe("plan schema", () => {
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
       /missing required key "reason"/i
     );
+  });
+
+  it("allows supportiveEvidence as an optional evidence array", () => {
+    const valid = {
+      ...basePlan,
+      plan: [
+        {
+          ...basePlan.plan[0],
+          supportiveEvidence: [
+            "apps/auth/src/service.ts: duplicated validation logic near lines 40-80",
+          ],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
   });
 });

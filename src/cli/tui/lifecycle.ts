@@ -9,7 +9,14 @@ import type { Side } from "./types";
 function handleKey(chunk: Buffer): void {
   if (handleMouse(chunk)) return;
   const key = chunk.toString();
-  if (key === KEY.quit || key === KEY.ctrlC) {
+  if (key === KEY.ctrlC) {
+    toggleExitRequest();
+  } else if (key === KEY.ctrlQ) {
+    // Hard exit on Ctrl+Q: immediately request exit and terminate the process.
+    requestExit();
+    shutdown();
+    process.exit(0);
+  } else if (key === KEY.quit) {
     toggleExitRequest();
   }
 }

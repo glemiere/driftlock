@@ -10,7 +10,7 @@ function renderHeader(innerWidth: number): string {
   const base = `${COLORS.title}${state.title}${RESET}${info}   ${elapsed}`;
 
   if (state.exitRequested) {
-    const exitText = `${COLORS.error}${BOLD}● EXIT PENDING${RESET}`;
+    const exitText = `${COLORS.error}${BOLD}● EXIT PENDING${RESET} - ctrl + q (force exit)`;
     const padding = Math.max(1, innerWidth - visibleLength(base) - visibleLength(exitText));
     return `${base}${" ".repeat(padding)}${exitText}`;
   }

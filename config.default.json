@@ -2,16 +2,22 @@
   "$schema": "./assets/schemas/config.schema.json",
   "model": "gpt-5.1-codex-max",
   "commands": {
-    "build": "npm build",
-    "test": "npm test",
-    "lint": "npm lint"
+    "build": "npm run build",
+    "test": "npm run test",
+    "lint": "npm run lint"
+  },
+  "commandsFailOnly": {
+    "build": "",
+    "test": "",
+    "lint": ""
   },
   "enableBuild": true,
   "enableLint": true,
   "enableTest": true,
+  "runBaselineQualityGate": true,
   "maxValidationRetries": 3,
-  "maxRegressionAttempts": 3,
-  "maxThreadLifetimeAttempts": 5,
+  "maxRegressionAttempts": 5,
+  "maxThreadLifetimeAttempts": 10,
   "failurePolicy": {
     "maxConsecutiveStepFailures": 1,
     "abortOnAnyStepFailure": false,
@@ -29,12 +35,12 @@
       "validators": ["plan"]
     },
     "dependency": {
-      "enabled": true,
+      "enabled": false,
       "path": "./assets/auditors/dependency.md",
       "validators": ["plan"]
     },
     "documentation": {
-      "enabled": true,
+      "enabled": false,
       "path": "./assets/auditors/documentation.md",
       "validators": ["plan"]
     },

@@ -2,13 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { jest } from "@jest/globals";
-import { executePlanStep } from "../src/core/codex";
+import { executePlanStep } from "../src/core/step/execute-plan-step";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual<typeof import("../src/core/codex/utils")>(
-    "../src/core/codex/utils"
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual<typeof import("../src/core/utils/codex-utils")>(
+    "../src/core/utils/codex-utils"
   );
   return {
     ...actual,
@@ -39,9 +39,13 @@ describe("executePlanStep", () => {
       properties: {
         success: { type: "boolean" },
         summary: { type: "string" },
+        details: { type: "string" },
+        filesTouched: { type: "array", items: { type: "string" } },
+        filesWritten: { type: "array", items: { type: "string" } },
+        patch: { type: "string" },
         mode: { type: "string" },
       },
-      required: ["success", "summary", "mode"],
+      required: ["success", "summary", "mode", "details", "filesTouched", "filesWritten", "patch"],
     };
     fs.writeFileSync(schemaPath, JSON.stringify(schema, null, 2));
   });
@@ -55,7 +59,18 @@ describe("executePlanStep", () => {
         events: (async function* () {
           yield {
             type: "item.completed",
-            item: { type: "agent_message", text: JSON.stringify({ success: true, summary: "ok", mode: "apply" }) },
+            item: {
+              type: "agent_message",
+              text: JSON.stringify({
+                success: true,
+                summary: "ok",
+                details: "detail",
+                filesTouched: ["file"],
+                filesWritten: ["file"],
+                patch: "--- a/file\n+++ b/file\n@@\n-foo\n+bar\n",
+                mode: "apply",
+              }),
+            },
           };
         })(),
       };
@@ -71,7 +86,15 @@ describe("executePlanStep", () => {
       excludePaths: [],
     });
 
-    expect(result).toEqual({ success: true, summary: "ok", mode: "apply" });
+    expect(result).toEqual({
+      success: true,
+      summary: "ok",
+      details: "detail",
+      filesTouched: ["file"],
+      filesWritten: ["file"],
+      patch: "--- a/file\n+++ b/file\n@@\n-foo\n+bar\n",
+      mode: "apply",
+    });
     expect(mockRunStreamed).toHaveBeenCalledTimes(1);
   });
 
@@ -86,7 +109,9 @@ describe("executePlanStep", () => {
               text: JSON.stringify({
                 success: true,
                 summary: "ok",
+                details: "detail",
                 mode: "apply",
+                filesTouched: ["excluded/file.ts"],
                 filesWritten: ["excluded/file.ts"],
                 patch: "--- a/excluded/file.ts\n+++ b/excluded/file.ts\n@@\n-foo\n+bar\n",
               }),

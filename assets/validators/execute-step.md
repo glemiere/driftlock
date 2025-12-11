@@ -29,12 +29,10 @@ The orchestrator prompt provides you with:
 
 - the **step description** (what to change and where)
 - the **executor result JSON** (matching `execute-step.schema.json`)
-- the **allowedFiles** set for this step (files that may be touched)
 
 The exact format of these inputs is defined by the orchestrator, but you may assume:
 
 - `mode` is one of `"apply"` or `"fix_regression"` in the intended case
-- `allowedFiles` lists the only files this step may modify
 - `filesWritten` and `filesTouched` are under your control to validate
 
 Your goal is to answer with a small JSON object:
@@ -68,10 +66,10 @@ Reject when:
 
 Reject when:
 
-- any file in `filesWritten` or `filesTouched` is **not** in `allowedFiles`
-- the `patch` mentions a file path not present in `allowedFiles`
+- the `patch` mentions a file path that is excluded or unrelated to the step intent
+- in `mode: "fix_regression"`, the executor touches files that were not part of this step’s `apply` changes (the orchestrator will describe the allowed set)
 
-The executor must never modify or claim to write files that the orchestrator has not explicitly authorized.
+The executor must never modify or claim to write files that the orchestrator has not explicitly authorized by the step intent or that fall under excluded paths.
 
 ### 3. Missing Patch / Files For Successful Execution
 
@@ -92,29 +90,26 @@ When `success` is `false`:
 
 If a failing result still contains a non-empty patch or a non-empty `filesWritten`, reject.
 
-### 4. Behavior Reversal in fix_regression
+### 4. Behavior Reversal or Overreach in fix_regression
 
 In `mode: "fix_regression"`:
 
 - Reject if the executor appears to **remove** or **negate** the core intent of the original step instead of fixing a regression.
-- Examples:
-  - deleting the main logic the step introduced
-  - replacing the behavior with a no-op
+  - Examples:
+    - deleting the main logic the step introduced
+    - replacing the behavior with a no-op
+- Reject if the executor attempts broad speculative changes to satisfy noisy output (e.g., rewriting unrelated modules because tests are flaky).
 
-The executor may refine or correct the step, but not undo it unless the prompt explicitly instructs otherwise.
+The executor may refine or correct the step, but not undo it unless the prompt explicitly instructs otherwise, and must keep changes tightly scoped to previously touched areas.
 
 ### 5. Patch Must Not Modify Hidden or Undeclared Files
 
 Reject when:
 
 - the unified diff `patch` contains a file header (e.g., `diff --git a/... b/...`, `--- a/...`, `+++ b/...`) for a file **not** listed in `filesWritten`
-- the patch shows modifications to files outside `allowedFiles`, even if `filesWritten`/`filesTouched` omitted them
 - the patch clearly affects more files than `filesWritten` reports
 
-The patch itself must not “hide” additional modified files; all modified files must be both:
-
-- inside `allowedFiles`, and
-- explicitly listed in `filesWritten`.
+The patch itself must not “hide” additional modified files; all modified files must be explicitly listed in `filesWritten` and must not be excluded or unrelated to the step.
 
 ### 6. Malformed or Non-standard Patch Syntax
 
@@ -168,7 +163,7 @@ If the step intent is not fully satisfied, reject with a short reason that can b
 Approve (`valid: true`) when:
 
 - `mode` is correct and consistent with the requested execution
-- all touched/written files are inside `allowedFiles`
+- all touched/written files are declared in `filesWritten`/`filesTouched` and not excluded
 - the patch is small, focused, and aligned with the step description
 - metadata is coherent:
   - `success` matches the presence/absence of a patch

@@ -32,10 +32,23 @@
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
         },
+        "supportiveEvidence": {
+          "type": "array",
+          "description": "Optional evidence items that justify or support the steps in this plan item.",
+          "items": { "type": "string", "minLength": 1 }
+        },
         "category": { "type": "string", "minLength": 1 },
         "risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] }
       },
-      "required": ["action", "why", "filesInvolved", "category", "steps", "risk"]
+      "required": [
+        "action",
+        "why",
+        "filesInvolved",
+        "steps",
+        "supportiveEvidence",
+        "category",
+        "risk"
+      ]
     }
   }
 }

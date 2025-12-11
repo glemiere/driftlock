@@ -8,7 +8,6 @@ Input (provided by the orchestrator):
 - `stepDescription`: the exact, self-contained step text.
 - `executorResult`: JSON emitted by the executor (matching `execute-step.schema.json`).
 - `codeSnapshots`: map of file path → current file content for all files the executor claims to have touched.
-- `allowedFiles`: list of files the executor is allowed to touch for this step.
 
 Output:
 - A single JSON object conforming to `validate-plan.schema.json`:  
@@ -20,7 +19,7 @@ Output:
 ## Mission
 
 Approve only when the executor result is:
-- scoped strictly to `allowedFiles`,
+- scoped to the step intent (no excluded or unrelated files),
 - structurally consistent (patch ↔ filesWritten ↔ filesTouched),
 - correctly implements the step intent (apply mode),
 - does not undo the step (fix_regression),
@@ -38,9 +37,6 @@ Reject (`valid: false`) if any apply:
    - `mode` is not `"apply"` or `"fix_regression"`.
    - Required executor fields are missing or malformed.
 
-2) **Scope Drift**
-   - Any file in `filesWritten`, `filesTouched`, or in patch headers is not in `allowedFiles`.
-
 3) **Patch/Metadata Incoherence**
    - `success: true` but `patch`/`filesWritten`/`filesTouched` are missing, empty, or inconsistent.
    - `success: false` but a non-empty patch or non-empty `filesWritten` is present.
@@ -53,8 +49,10 @@ Reject (`valid: false`) if any apply:
      - only superficial edits,
      - partial or symbolic changes that leave the intent unfulfilled.
 
-5) **Fix Regression: Behavior Reversal**
-   - In `mode: "fix_regression"`, the patch undoes or negates the original step instead of narrowly fixing regressions.
+5) **Fix Regression: Behavior Reversal or Overreach**
+   - In `mode: "fix_regression"`, the patch:
+     - undoes or negates the original step instead of narrowly fixing regressions, or
+     - expands into unrelated files or code paths not previously touched by this step, in an attempt to “fix” noisy/flaky failures.
 
 6) **Unverifiable or Unrelated Changes**
    - Patch touches files or code not described in the step.
@@ -75,7 +73,7 @@ Reject (`valid: false`) if any apply:
 ## Soft Acceptance Guidance
 
 Approve (`valid: true`) when:
-- All touched/written files are within `allowedFiles`.
+- All touched/written files are declared, not excluded, and align with the step intent.
 - Patch is small, well-formed, and coherent with metadata.
 - Apply mode: the requested transformation is fully reflected in the patch.
 - Fix_regression mode: the patch is narrowly targeted to the regression without undoing the step.

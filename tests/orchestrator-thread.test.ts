@@ -11,9 +11,16 @@ describe("ThreadAttemptTracker", () => {
     expect(tracker.getAttemptCount()).toBe(3);
   });
 
-  it("rejects invalid maxAttempts", () => {
-    expect(() => new ThreadAttemptTracker(0)).toThrow();
-    expect(() => new ThreadAttemptTracker(-1)).toThrow();
+  it("treats non-positive maxAttempts as unbounded", () => {
+    const trackerZero = new ThreadAttemptTracker(0);
+    expect(trackerZero.recordAttempt()).toBe(true);
+    expect(trackerZero.recordAttempt()).toBe(true);
+    expect(trackerZero.isExhausted()).toBe(false);
+
+    const trackerNegative = new ThreadAttemptTracker(-1);
+    expect(trackerNegative.recordAttempt()).toBe(true);
+    expect(trackerNegative.recordAttempt()).toBe(true);
+    expect(trackerNegative.isExhausted()).toBe(false);
   });
 
   it("caps at one attempt when maxAttempts is 1", () => {
@@ -23,4 +30,3 @@ describe("ThreadAttemptTracker", () => {
     expect(tracker.isExhausted()).toBe(true);
   });
 });
-

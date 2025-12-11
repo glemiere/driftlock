@@ -2,12 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { jest } from "@jest/globals";
-import { buildPlan } from "../src/core/codex";
+import { buildPlan } from "../src/core/plan/build-plan";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual("../src/core/codex/utils");
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual("../src/core/utils/codex-utils");
   return {
     ...actual,
     dynamicImport: jest.fn(async () => ({

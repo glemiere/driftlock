@@ -1,12 +1,12 @@
 import { jest } from "@jest/globals";
 import path from "path";
-import { validatePlan } from "../src/core/codex";
+import { validatePlan } from "../src/core/plan/validate-plan";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual<typeof import("../src/core/codex/utils")>(
-    "../src/core/codex/utils"
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual<typeof import("../src/core/utils/codex-utils")>(
+    "../src/core/utils/codex-utils"
   );
   return {
     ...actual,
@@ -35,6 +35,7 @@ describe("validatePlan exclusions", () => {
           why: "Document available auditors",
           filesInvolved: ["AGENTS.md", ".ai/auditors/security.md"],
           steps: ["Create AGENTS.md linking to security auditor"],
+          supportiveEvidence: ["AGENTS.md missing; security auditor exists under .ai/auditors"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -76,6 +77,7 @@ describe("validatePlan exclusions", () => {
           why: "Safe",
           filesInvolved: ["README.md"],
           steps: ["Update README"],
+           supportiveEvidence: ["README.md exists and is not excluded"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -115,6 +117,7 @@ describe("validatePlan exclusions", () => {
           why: "Safe",
           filesInvolved: ["README.md"],
           steps: ["Update README"],
+          supportiveEvidence: ["README.md exists and is not excluded"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -174,6 +177,7 @@ describe("validatePlan exclusions", () => {
           why: "Clarity",
           filesInvolved: ["README.md"],
           steps: ["Edit README"],
+          supportiveEvidence: ["Outdated section in README.md"],
           category: "Documentation",
           risk: "LOW",
         },

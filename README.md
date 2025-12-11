@@ -193,5 +193,39 @@ These schemas complement the human-readable Markdown formatters by providing str
   - top-level `exclude` array and optional `model`  
 - Editors and tooling can use this schema (via the `$schema` field in `config.default.json` or your own `driftlock.config.json`) to provide validation and autocomplete for configuration changes.
 
+### Commands and fail-only variants
+
+The top-level config also defines shell commands used by the quality gate:
+
+- `commands.build` — build/typecheck command (non-zero exit code on failure).  
+- `commands.test` — test command (non-zero exit code on failure).  
+- `commands.lint` — lint command (non-zero exit code on failure).  
+
+Optionally, you can provide **fail-only / concise variants** via `commandsFailOnly`:
+
+```jsonc
+"commandsFailOnly": {
+  "build": "npm run build:fail-only",
+  "test": "npm run test:fail-only",
+  "lint": "npm run lint:fail-only"
+}
+```
+
+These are not required. When present, they can be used to give the regression loop shorter, failure-focused logs while still relying on `commands.*` and exit codes for actual pass/fail decisions.
+
+### Baseline quality gate
+
+The top-level config also includes `runBaselineQualityGate` (default: `true`):
+
+- When `true`, Driftlock runs a full `build` → `test` → `lint` cycle once before any auditor executes, to establish baseline health.
+- When `false`, the orchestrator skips this baseline check and proceeds directly to auditor plans.
+
+Retry-related caps can also be tuned:
+
+- `maxRegressionAttempts` — maximum number of regression-fix attempts per step (0 means unbounded).  
+- `maxThreadLifetimeAttempts` — maximum number of Codex executor calls (apply + fix_regression) per step (0 means unbounded).  
+
+Defaults are conservative (`maxRegressionAttempts: 5`, `maxThreadLifetimeAttempts: 10`). For most projects you should keep caps enabled; setting them to `0` removes the guardrail and may cause long-running loops when underlying suites are persistently red.
+
 ######
 Developed with ❤️ by @glemiere.

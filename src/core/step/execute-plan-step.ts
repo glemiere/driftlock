@@ -2,12 +2,13 @@ import path from "path";
 import { readJsonFile, readTextFile } from "../../utils/fs";
 import {
   combinePrompts,
+  combineWithCoreContext,
   dynamicImport,
   extractAgentText,
   formatCodexError,
   formatEvent,
   parseJsonSafe,
-} from "./utils";
+} from "../utils/codex-utils";
 
 type StepMode = "apply" | "fix_regression";
 
@@ -18,6 +19,7 @@ export type ExecutePlanStepOptions = {
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
+  coreContext?: string | null;
   excludePaths?: string[];
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
@@ -46,15 +48,20 @@ export async function executePlanStep(
     formatterPath,
     schemaPath,
     excludePaths = [],
+    coreContext,
     onEvent,
     onInfo,
   } = options;
 
   const formatter = await readTextFile(formatterPath);
   const outputSchema = (await readJsonFile(schemaPath)) as unknown;
-  const combinedPrompt = combinePrompts(buildStepPrompt(stepText, mode), formatter);
+  const basePrompt = combinePrompts(buildStepPrompt(stepText, mode), formatter);
+  const combinedPrompt = combineWithCoreContext(coreContext ?? null, basePrompt);
 
   onInfo?.(`[execute-step] running executor in mode="${mode}" with model: ${model}`);
+
+  let latestAgentMessage: string | null = null;
+  let parsed: ExecutePlanStepResult | undefined;
 
   try {
     const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>("@openai/codex-sdk");
@@ -62,10 +69,11 @@ export async function executePlanStep(
     const thread = codex.startThread({
       model,
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
     });
 
-    const { latestAgentMessage } = await streamExecutorEvents(
+    const streamed = await streamExecutorEvents(
       thread.runStreamed.bind(thread),
       combinedPrompt,
       outputSchema,
@@ -73,17 +81,19 @@ export async function executePlanStep(
       onEvent
     );
 
-    const parsed = parseJsonSafe(latestAgentMessage) as ExecutePlanStepResult | undefined;
-    if (parsed) {
-      enforceExcludes(parsed, workingDirectory, excludePaths);
-    }
-
-    return { result: parsed, agentMessage: latestAgentMessage };
+    latestAgentMessage = streamed.latestAgentMessage;
+    parsed = parseJsonSafe(latestAgentMessage) as ExecutePlanStepResult | undefined;
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[execute-step] Codex error: ${message}`);
-    throw new Error(message);
+    return { result: undefined, agentMessage: null };
   }
+
+  if (parsed) {
+    enforceExcludes(parsed, workingDirectory, excludePaths);
+  }
+
+  return { result: parsed, agentMessage: latestAgentMessage };
 }
 
 function buildStepPrompt(stepText: string, mode: StepMode): string {
@@ -167,4 +177,3 @@ function extractFilesFromPatch(patch?: string): string[] {
   }
   return Array.from(files);
 }
-

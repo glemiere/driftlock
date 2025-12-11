@@ -2,12 +2,13 @@ import { readTextFile } from "../../utils/fs";
 import type { ThreadEvent } from "@openai/codex-sdk";
 import {
   combinePrompts,
+  combineWithCoreContext,
   dynamicImport,
   extractAgentText,
   formatCodexError,
   formatEvent,
   parseJsonSafe,
-} from "./utils";
+} from "../utils/codex-utils";
 
 export type BuildPlanOptions = {
   auditorName: string;
@@ -16,6 +17,7 @@ export type BuildPlanOptions = {
   planSchema: unknown;
   model: string;
   workingDirectory: string;
+  coreContext?: string | null;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -28,11 +30,12 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
     planSchema,
     model,
     workingDirectory,
+    coreContext,
     onEvent,
     onInfo,
   } = options;
 
-  const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter);
+  const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter, coreContext);
   onInfo?.(`[${auditorName}] generating plan with model: ${model}`);
 
   try {
@@ -52,9 +55,14 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
   }
 }
 
-async function loadCombinedPrompt(auditorPath: string, planFormatter: string): Promise<string> {
+async function loadCombinedPrompt(
+  auditorPath: string,
+  planFormatter: string,
+  coreContext?: string | null
+): Promise<string> {
   const auditorPrompt = await readTextFile(auditorPath);
-  return combinePrompts(auditorPrompt, planFormatter);
+  const withFormatter = combinePrompts(auditorPrompt, planFormatter);
+  return combineWithCoreContext(coreContext ?? null, withFormatter);
 }
 
 type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStreamed;

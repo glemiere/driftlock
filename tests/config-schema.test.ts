@@ -167,6 +167,7 @@ describe("config schema", () => {
       enableBuild: false,
       enableLint: false,
       enableTest: true,
+      runBaselineQualityGate: true,
       maxValidationRetries: 5,
       maxRegressionAttempts: 2,
       maxThreadLifetimeAttempts: 4,
@@ -174,6 +175,11 @@ describe("config schema", () => {
         maxConsecutiveStepFailures: 2,
         abortOnAnyStepFailure: false,
         requireAtLeastOneStepSuccess: true,
+      },
+      commandsFailOnly: {
+        build: "npm run build:fail-only",
+        lint: "npm run lint:fail-only",
+        test: "npm run test:fail-only",
       },
     };
 

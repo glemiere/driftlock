@@ -1,4 +1,4 @@
-import type { DriftlockConfig } from "./config-loader";
+import type { DriftlockConfig } from "../config-loader";
 
 export function resolveModel(
   config: DriftlockConfig,

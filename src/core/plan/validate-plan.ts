@@ -6,7 +6,7 @@ import {
   extractAgentText,
   formatCodexError,
   formatEvent,
-} from "./utils";
+} from "../utils/codex-utils";
 
 export type ValidatePlanOptions = {
   auditorName: string;

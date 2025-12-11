@@ -29,9 +29,15 @@ export type DriftlockConfig = {
     lint: string;
     test: string;
   };
+  commandsFailOnly?: {
+    build?: string;
+    lint?: string;
+    test?: string;
+  };
   enableBuild: boolean;
   enableLint: boolean;
   enableTest: boolean;
+  runBaselineQualityGate: boolean;
   maxValidationRetries: number;
   maxRegressionAttempts: number;
   maxThreadLifetimeAttempts: number;
@@ -54,6 +60,11 @@ type DriftlockConfigOverrides = {
     lint?: string;
     test?: string;
   };
+  commandsFailOnly?: {
+    build?: string;
+    lint?: string;
+    test?: string;
+  };
   formatters?: {
     plan?: string;
     schema?: string;
@@ -62,6 +73,7 @@ type DriftlockConfigOverrides = {
   enableBuild?: boolean;
   enableLint?: boolean;
   enableTest?: boolean;
+  runBaselineQualityGate?: boolean;
   maxValidationRetries?: number;
   maxRegressionAttempts?: number;
   maxThreadLifetimeAttempts?: number;
@@ -286,6 +298,34 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const validators = normalizeDefaultValidators(validatorsObj);
   const formatters = normalizeDefaultFormatters(formattersObj);
 
+  const commandsFailOnlyRoot = root.commandsFailOnly;
+  let commandsFailOnly: DriftlockConfig["commandsFailOnly"];
+  if (commandsFailOnlyRoot !== undefined) {
+    if (!isPlainObject(commandsFailOnlyRoot)) {
+      throw new Error('Default config "commandsFailOnly" must be an object when provided.');
+    }
+    const cfg = commandsFailOnlyRoot as RawConfigObject;
+    commandsFailOnly = {};
+    if (cfg.build !== undefined) {
+      if (typeof cfg.build !== "string") {
+        throw new Error('Default config "commandsFailOnly.build" must be a string when provided.');
+      }
+      commandsFailOnly.build = cfg.build;
+    }
+    if (cfg.lint !== undefined) {
+      if (typeof cfg.lint !== "string") {
+        throw new Error('Default config "commandsFailOnly.lint" must be a string when provided.');
+      }
+      commandsFailOnly.lint = cfg.lint;
+    }
+    if (cfg.test !== undefined) {
+      if (typeof cfg.test !== "string") {
+        throw new Error('Default config "commandsFailOnly.test" must be a string when provided.');
+      }
+      commandsFailOnly.test = cfg.test;
+    }
+  }
+
   return {
     auditors,
     validators,
@@ -294,9 +334,12 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
       lint: commandsRoot.lint,
       test: commandsRoot.test,
     },
+    commandsFailOnly,
     enableBuild: typeof root.enableBuild === "boolean" ? root.enableBuild : true,
     enableLint: typeof root.enableLint === "boolean" ? root.enableLint : true,
     enableTest: typeof root.enableTest === "boolean" ? root.enableTest : true,
+    runBaselineQualityGate:
+      typeof root.runBaselineQualityGate === "boolean" ? root.runBaselineQualityGate : true,
     maxValidationRetries:
       typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 3,
     maxRegressionAttempts:
@@ -492,6 +535,15 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
     overrides.enableBuild = root.enableBuild;
   }
 
+  if (root.runBaselineQualityGate !== undefined) {
+    if (typeof root.runBaselineQualityGate !== "boolean") {
+      throw new Error(
+        'User config "runBaselineQualityGate" must be a boolean when provided.'
+      );
+    }
+    overrides.runBaselineQualityGate = root.runBaselineQualityGate;
+  }
+
   if (root.commands !== undefined) {
     if (!isPlainObject(root.commands)) {
       throw new Error('User config "commands" must be an object when provided.');
@@ -515,6 +567,44 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
     }
 
     overrides.commands = commandsOverride;
+  }
+
+  if (root.commandsFailOnly !== undefined) {
+    if (!isPlainObject(root.commandsFailOnly)) {
+      throw new Error('User config "commandsFailOnly" must be an object when provided.');
+    }
+
+    const commandsRoot = root.commandsFailOnly as RawConfigObject;
+    const commandsFailOnlyOverride: DriftlockConfigOverrides["commandsFailOnly"] = {};
+
+    if ("build" in commandsRoot) {
+      if (commandsRoot.build !== undefined && typeof commandsRoot.build !== "string") {
+        throw new Error(
+          'User config "commandsFailOnly.build" must be a string when provided.'
+        );
+      }
+      commandsFailOnlyOverride.build = commandsRoot.build as string | undefined;
+    }
+
+    if ("lint" in commandsRoot) {
+      if (commandsRoot.lint !== undefined && typeof commandsRoot.lint !== "string") {
+        throw new Error(
+          'User config "commandsFailOnly.lint" must be a string when provided.'
+        );
+      }
+      commandsFailOnlyOverride.lint = commandsRoot.lint as string | undefined;
+    }
+
+    if ("test" in commandsRoot) {
+      if (commandsRoot.test !== undefined && typeof commandsRoot.test !== "string") {
+        throw new Error(
+          'User config "commandsFailOnly.test" must be a string when provided.'
+        );
+      }
+      commandsFailOnlyOverride.test = commandsRoot.test as string | undefined;
+    }
+
+    overrides.commandsFailOnly = commandsFailOnlyOverride;
   }
 
   if (root.enableLint !== undefined) {

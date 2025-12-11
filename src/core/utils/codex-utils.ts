@@ -28,6 +28,11 @@ export function combinePrompts(auditorPrompt: string, formatter: string): string
   return parts.join("\n\n");
 }
 
+export function combineWithCoreContext(core: string | null | undefined, prompt: string): string {
+  const parts = [core?.trim(), prompt.trim()].filter(Boolean) as string[];
+  return parts.join("\n\n");
+}
+
 export function formatEvent(context: string, event: ThreadEvent): string {
   const ctx = colorize(`[${context}]`, COLOR.dim);
 
@@ -78,20 +83,12 @@ function isAgentMessage(item: ThreadItem): item is AgentMessageItem {
   return item.type === "agent_message";
 }
 
-export function assertUnreachable(x: never): never {
-  throw new Error(`Unhandled event: ${JSON.stringify(x)}`);
-}
-
 export const dynamicImport: <T>(specifier: string) => Promise<T> = (specifier) =>
   new Function("specifier", "return import(specifier);")(specifier);
 
 function summarizeText(text: string, maxLen: number | null = 200): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
-  if (maxLen === null || maxLen === Infinity) {
-    return cleaned;
-  }
-  if (cleaned.length <= maxLen) return cleaned;
-  return `${cleaned.slice(0, maxLen - 1)}…`;
+  return cleaned;
 }
 
 function statusColor(status?: string): string {

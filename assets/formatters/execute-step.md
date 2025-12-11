@@ -84,6 +84,9 @@ Rules:
 - **Do not widen scope**:
   - Only modify files that this step already touched (they will be described in the prompt).
   - Do not introduce new files or modify files outside that set.
+- Assume build/test/lint output may be **flaky or noisy**:
+  - Prefer small, targeted adjustments to your previous change.
+  - Do not rewrite unrelated logic just to “silence” failures.
 - Do not revert or negate the intended behavior of the original apply-step unless explicitly instructed to do so.
 - Use the provided quality gate summary (build/test/lint failures) to target the regression:
   - focus strictly on the failing paths, functions, or behaviors described,

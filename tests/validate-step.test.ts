@@ -2,13 +2,13 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { jest } from "@jest/globals";
-import { validateStep } from "../src/core/codex";
+import { validateStep } from "../src/core/step/validate-step";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual<typeof import("../src/core/codex/utils")>(
-    "../src/core/codex/utils"
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual<typeof import("../src/core/utils/codex-utils")>(
+    "../src/core/utils/codex-utils"
   );
   return {
     ...actual,
@@ -63,7 +63,6 @@ describe("validateStep", () => {
     const result = await validateStep({
       stepDescription: "Do something",
       executorResult: { success: true },
-      allowedFiles: ["src/file.ts"],
       codeSnapshots: { "src/file.ts": "// code" },
       validatorPath,
       validateSchemaPath: schemaPath,

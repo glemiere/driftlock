@@ -44,6 +44,31 @@ describe("config-loader", () => {
     expect(typeof config.failurePolicy.requireAtLeastOneStepSuccess).toBe("boolean");
   });
 
+  it("supports optional commandsFailOnly in defaults and user overrides", async () => {
+    await withTempDir(async (dir) => {
+      const userConfig = {
+        commandsFailOnly: {
+          build: "npm run build:fail-only",
+          test: "npm run test:fail-only",
+        },
+      };
+
+      await fs.writeFile(
+        path.join(dir, "driftlock.config.json"),
+        JSON.stringify(userConfig, null, 2)
+      );
+
+      process.chdir(dir);
+
+      const config = await loadConfig();
+      expect(config.commandsFailOnly).toBeDefined();
+      expect(config.commandsFailOnly?.build).toBe("npm run build:fail-only");
+      expect(config.commandsFailOnly?.test).toBe("npm run test:fail-only");
+      // default config currently sets empty strings; user overrides should not clear unspecified keys
+      expect(typeof config.commandsFailOnly?.lint).toBe("string");
+    });
+  });
+
   it("merges user overrides and resolves paths", async () => {
     await withTempDir(async (dir) => {
       const auditorDir = path.join(dir, ".ai", "auditors");

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import path from "path";
-import { runCommand, runValidationLoop } from "../src/core/run-commands";
+import { runCommand } from "../src/core/utils/run-commands";
+import { checkQualityGateDisabled } from "../src/core/quality/quality-gate";
 
 const cwd = path.resolve(__dirname, "..");
 
@@ -19,73 +20,26 @@ describe("runCommand", () => {
   });
 });
 
-describe("runValidationLoop", () => {
-  it("short-circuits when validation is disabled", async () => {
-    const result = await runValidationLoop({
+describe("checkQualityGateDisabled", () => {
+  it("short-circuits when validation is disabled", () => {
+    const result = checkQualityGateDisabled({
       enableBuild: false,
       enableTest: false,
       enableLint: false,
-      buildCmd: "",
-      testCmd: "",
-      lintCmd: "",
-      maxRetries: 3,
-      cwd,
     });
 
-    expect(result.ok).toBe(true);
-    expect(result.attempts).toBe(0);
-    expect(result.summary).toMatch(/disabled/i);
+    expect(result?.ok).toBe(true);
+    expect(result?.attempts).toBe(0);
+    expect(result?.summary).toMatch(/disabled/i);
   });
 
-  it("returns failure metadata when build fails", async () => {
-    const result = await runValidationLoop({
+  it("returns null when any gate is enabled", () => {
+    const result = checkQualityGateDisabled({
       enableBuild: true,
-      enableTest: true,
-      enableLint: true,
-      buildCmd: 'node -e "process.exit(1)"',
-      testCmd: 'node -e "console.log(\\"test\\")"',
-      lintCmd: 'node -e "console.log(\\"lint\\")"',
-      maxRetries: 2,
-      cwd,
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.attempts).toBe(1);
-    expect(result.lastStage).toBe("build");
-    expect(result.code).toBe(1);
-    expect(result.summary).toMatch(/stage=build/);
-  });
-
-  it("requires two consecutive passes", async () => {
-    const result = await runValidationLoop({
-      enableBuild: true,
-      enableTest: true,
-      enableLint: true,
-      buildCmd: 'node -e "console.log(\\"build\\")"',
-      testCmd: 'node -e "console.log(\\"test\\")"',
-      lintCmd: 'node -e "console.log(\\"lint\\")"',
-      maxRetries: 2,
-      cwd,
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.attempts).toBe(2);
-    expect(result.summary).toMatch(/passed twice/i);
-  });
-
-  it("fails if maxRetries reached without two passes", async () => {
-    const result = await runValidationLoop({
-      enableBuild: true,
-      enableTest: true,
+      enableTest: false,
       enableLint: false,
-      buildCmd: 'node -e "console.log(\\"build\\")"',
-      testCmd: 'node -e "process.exit(0)"',
-      lintCmd: "",
-      maxRetries: 1,
-      cwd,
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.summary).toMatch(/maxRetries/i);
+    expect(result).toBeNull();
   });
 });

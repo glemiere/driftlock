@@ -89,6 +89,25 @@
       },
       "required": ["build", "lint", "test"]
     },
+    "commandsFailOnly": {
+      "type": "object",
+      "description": "Optional commands that produce concise, failure-focused output for build/test/lint.",
+      "additionalProperties": false,
+      "properties": {
+        "build": {
+          "type": "string",
+          "description": "Alternative build/typecheck command optimized for short, failure-only output."
+        },
+        "lint": {
+          "type": "string",
+          "description": "Alternative lint command optimized for short, failure-only output."
+        },
+        "test": {
+          "type": "string",
+          "description": "Alternative test command optimized for short, failure-only output."
+        }
+      }
+    },
     "enableBuild": {
       "type": "boolean",
       "description": "Whether build should be run during validation loops."
@@ -101,6 +120,10 @@
       "type": "boolean",
       "description": "Whether tests should be run during validation loops."
     },
+    "runBaselineQualityGate": {
+      "type": "boolean",
+      "description": "Whether to run a full build/test/lint cycle once before any auditors execute."
+    },
     "maxValidationRetries": {
       "type": "integer",
       "minimum": 0,
@@ -109,12 +132,12 @@
     "maxRegressionAttempts": {
       "type": "integer",
       "minimum": 0,
-      "description": "Maximum number of regression-fix attempts allowed per step."
+      "description": "Maximum number of regression-fix attempts allowed per step (0 means unbounded)."
     },
     "maxThreadLifetimeAttempts": {
       "type": "integer",
-      "minimum": 1,
-      "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step."
+      "minimum": 0,
+      "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step (0 means unbounded)."
     },
     "failurePolicy": {
       "type": "object",
