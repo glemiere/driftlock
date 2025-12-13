@@ -15,9 +15,9 @@
   "enableLint": true,
   "enableTest": true,
   "runBaselineQualityGate": true,
-  "maxValidationRetries": 1,
-  "maxRegressionAttempts": 5,
-  "maxThreadLifetimeAttempts": 10,
+  "maxValidationRetries": 5,
+  "maxRegressionAttempts": 10,
+  "maxThreadLifetimeAttempts": 30,
   "failurePolicy": {
     "maxConsecutiveStepFailures": 1,
     "abortOnAnyStepFailure": false,
