@@ -14,8 +14,8 @@ describe("quality-gate summarizeQualityFailure", () => {
 
     expect(summary).toContain("stage=lint");
     expect(summary).toContain("code=1");
-    expect(summary).toContain("stdout=");
-    expect(summary).toContain("stderr=");
+    expect(summary).toContain("stdout:");
+    expect(summary).toContain("stderr:");
     // Ensure no other stages are mentioned in the summary string.
     expect(summary).not.toContain("stage=test");
     expect(summary).not.toContain("stage=build");

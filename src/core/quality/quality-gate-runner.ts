@@ -41,6 +41,15 @@ export function createTestFailureCondenser(
 }
 
 export function createQualityStages(context: QualityStageContext): QualityStage[] {
+  const streamLogger = (stageName: QualityStageName) => {
+    return (stream: "stdout" | "stderr", chunk: string) => {
+      const lines = chunk.split(/\r?\n/).filter(Boolean);
+      for (const line of lines) {
+        tui.logRight(`[${stageName}] ${stream}: ${line}`);
+      }
+    };
+  };
+
   const summarizeStage = (
     stageName: QualityStageName
   ): ((result: CommandResult) => Promise<string>) => {
@@ -52,20 +61,38 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
     {
       name: "build",
       enabled: context.config.enableBuild,
-      run: () => runBuild(context.config.commands.build, context.cwd),
+      run: () =>
+        runBuild(
+          context.config.commands.build,
+          context.cwd,
+          (chunk) => streamLogger("build")("stdout", chunk),
+          (chunk) => streamLogger("build")("stderr", chunk)
+        ),
       buildFailureDetail: summarizeStage("build"),
     },
     {
       name: "test",
       enabled: context.config.enableTest,
-      run: () => runTest(context.config.commands.test, context.cwd),
+      run: () =>
+        runTest(
+          context.config.commands.test,
+          context.cwd,
+          (chunk) => streamLogger("test")("stdout", chunk),
+          (chunk) => streamLogger("test")("stderr", chunk)
+        ),
       buildFailureDetail: async (result: CommandResult) =>
         buildTestFailureDetail(result, context.onCondenseTestFailure),
     },
     {
       name: "lint",
       enabled: context.config.enableLint,
-      run: () => runLint(context.config.commands.lint, context.cwd),
+      run: () =>
+        runLint(
+          context.config.commands.lint,
+          context.cwd,
+          (chunk) => streamLogger("lint")("stdout", chunk),
+          (chunk) => streamLogger("lint")("stderr", chunk)
+        ),
       buildFailureDetail: summarizeStage("lint"),
     },
   ];
@@ -94,14 +121,17 @@ export async function buildTestFailureDetail(
   result: CommandResult,
   onCondenseTestFailure?: (stdout: string, stderr: string) => Promise<string | undefined>
 ): Promise<string> {
-  const baseSummary = summarizeQualityFailure("test", result) || "unknown failure";
   const condensed = await maybeCondenseTestFailure(
     onCondenseTestFailure,
     result.stdout,
     result.stderr
   );
+  if (condensed) {
+    return `CondensedTestSummary:\n${condensed}`;
+  }
 
-  return condensed ? `${baseSummary}\nCondensedTestSummary:\n${condensed}` : baseSummary;
+  const baseSummary = summarizeQualityFailure("test", result) || "unknown failure";
+  return baseSummary;
 }
 
 export function formatQualityGateFailure(stageName: QualityStageName, detail: string): string {

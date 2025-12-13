@@ -11,6 +11,9 @@ import {
 } from "../utils/codex-utils";
 
 type StepMode = "apply" | "fix_regression";
+export type ExecutorThread = {
+  runStreamed: RunStreamed;
+};
 
 export type ExecutePlanStepOptions = {
   stepText: string;
@@ -23,6 +26,7 @@ export type ExecutePlanStepOptions = {
   excludePaths?: string[];
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
+  thread?: ExecutorThread | null;
 };
 
 export type ExecutePlanStepResult = {
@@ -39,7 +43,11 @@ type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStream
 
 export async function executePlanStep(
   options: ExecutePlanStepOptions
-): Promise<{ result: ExecutePlanStepResult | undefined; agentMessage: string | null }> {
+): Promise<{
+  result: ExecutePlanStepResult | undefined;
+  agentMessage: string | null;
+  thread: ExecutorThread | null;
+}> {
   const {
     stepText,
     mode,
@@ -51,6 +59,7 @@ export async function executePlanStep(
     coreContext,
     onEvent,
     onInfo,
+    thread: providedThread,
   } = options;
 
   const formatter = await readTextFile(formatterPath);
@@ -63,15 +72,21 @@ export async function executePlanStep(
   let latestAgentMessage: string | null = null;
   let parsed: ExecutePlanStepResult | undefined;
 
+  let thread: ExecutorThread | null = providedThread ?? null;
+
   try {
-    const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>("@openai/codex-sdk");
-    const codex = new Codex();
-    const thread = codex.startThread({
-      model,
-      workingDirectory,
-      sandboxMode: "workspace-write",
-      skipGitRepoCheck: true,
-    });
+    if (!thread) {
+      const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>(
+        "@openai/codex-sdk"
+      );
+      const codex = new Codex();
+      thread = codex.startThread({
+        model,
+        workingDirectory,
+        sandboxMode: "workspace-write",
+        skipGitRepoCheck: true,
+      });
+    }
 
     const streamed = await streamExecutorEvents(
       thread.runStreamed.bind(thread),
@@ -86,14 +101,14 @@ export async function executePlanStep(
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[execute-step] Codex error: ${message}`);
-    return { result: undefined, agentMessage: null };
+    return { result: undefined, agentMessage: null, thread };
   }
 
   if (parsed) {
     enforceExcludes(parsed, workingDirectory, excludePaths);
   }
 
-  return { result: parsed, agentMessage: latestAgentMessage };
+  return { result: parsed, agentMessage: latestAgentMessage, thread };
 }
 
 function buildStepPrompt(stepText: string, mode: StepMode): string {

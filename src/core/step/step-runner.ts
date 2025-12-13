@@ -1,7 +1,6 @@
 import { tui } from "../../cli/tui";
-import { executePlanStep } from "./execute-plan-step";
+import { executePlanStep, type ExecutorThread, type ExecutePlanStepResult } from "./execute-plan-step";
 import { validateExecuteStep } from "./validate-execute-step";
-import type { ExecutePlanStepResult } from "./execute-plan-step";
 import {
   type ExecuteStepPhaseArgs,
   type StepPhaseResult,
@@ -52,6 +51,7 @@ async function runExecutor(args: {
   excludePaths: string[];
   additionalContext: string;
   auditorName: string;
+  thread: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
   const {
     stepText,
@@ -64,9 +64,10 @@ async function runExecutor(args: {
     excludePaths,
     additionalContext,
     auditorName,
+    thread,
   } = args;
 
-  const { result } = await executePlanStep({
+  const { result, thread: usedThread } = await executePlanStep({
     stepText: formatStepText(stepText, additionalContext),
     mode,
     model,
@@ -77,6 +78,7 @@ async function runExecutor(args: {
     excludePaths,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
+    thread,
   });
 
   if (!result) {
@@ -84,14 +86,21 @@ async function runExecutor(args: {
       `[${auditorName}] executor returned no result for step: ${stepText} (possible Codex error)`,
       "error"
     );
-    return { kind: "abort" };
+    return { kind: "abort", thread: usedThread ?? thread };
   }
 
   if (!result.success || !result.patch) {
-    return handleExecutorFailure(result, auditorName, mode);
+    const failure = handleExecutorFailure(result, auditorName, mode);
+    failure.thread = usedThread ?? thread;
+    return failure;
   }
 
-  return { kind: "proceed", execution: result, codeSnapshots: {} };
+  return {
+    kind: "proceed",
+    execution: result,
+    codeSnapshots: {},
+    thread: usedThread ?? thread ?? null,
+  };
 }
 
 async function runExecuteStepValidator(args: {
@@ -104,6 +113,7 @@ async function runExecuteStepValidator(args: {
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
   validateSchemaPath?: string;
+  thread: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
   const {
     auditorName,
@@ -115,10 +125,16 @@ async function runExecuteStepValidator(args: {
     executeStepValidatorPath,
     executeStepValidatorModel,
     validateSchemaPath,
+    thread,
   } = args;
 
+  // Skip executor validation for regression attempts; allow the quality gate to enforce safety.
+  if (mode === "fix_regression") {
+    return { kind: "proceed", execution, codeSnapshots: {}, thread };
+  }
+
   if (!executeStepValidatorPath || !executeStepValidatorModel || !validateSchemaPath) {
-    return { kind: "proceed", execution, codeSnapshots: {} };
+    return { kind: "proceed", execution, codeSnapshots: {}, thread };
   }
 
   const executionValidation = await validateExecuteStep({
@@ -145,20 +161,22 @@ async function runExecuteStepValidator(args: {
       additionalContext: `Execute-step validation failed: ${
         executionValidation.reason || "unknown"
       }`,
+      thread,
     };
   }
 
-  return { kind: "proceed", execution, codeSnapshots: {} };
+  return { kind: "proceed", execution, codeSnapshots: {}, thread };
 }
 
 async function createExecutionResult(
   execution: ExecutePlanStepResult,
-  workingDirectory: string
+  workingDirectory: string,
+  thread: ExecutorThread | null
 ): Promise<StepPhaseResult> {
   const filesForSnapshot = collectFiles(execution);
   const codeSnapshots = await readSnapshots(Array.from(filesForSnapshot), workingDirectory);
 
-  return { kind: "proceed", execution, codeSnapshots };
+  return { kind: "proceed", execution, codeSnapshots, thread };
 }
 
 export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<StepPhaseResult> {
@@ -177,10 +195,13 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     executeStepValidatorPath,
     executeStepValidatorModel,
     validateSchemaPath,
+    thread,
   } = args;
 
   if (!tracker.recordAttempt()) {
-    return failStepDueToThreadLimit(auditorName, stepText);
+    const failure = failStepDueToThreadLimit(auditorName, stepText);
+    failure.thread = thread;
+    return failure;
   }
 
   const execution = await runExecutor({
@@ -194,6 +215,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     excludePaths,
     additionalContext,
     auditorName,
+    thread,
   });
   if (execution.kind !== "proceed") {
     return execution;
@@ -209,10 +231,11 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     executeStepValidatorPath,
     executeStepValidatorModel,
     validateSchemaPath,
+    thread: execution.thread ?? null,
   });
   if (validation.kind !== "proceed") {
     return validation;
   }
 
-  return createExecutionResult(execution.execution, workingDirectory);
+  return createExecutionResult(execution.execution, workingDirectory, execution.thread ?? null);
 }

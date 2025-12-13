@@ -30,7 +30,9 @@ You never run build, tests, or lint yourself; you only react to their summarized
 ===========================================================
 
 - Implement **only** the described step; no new features, no speculative refactors.
-- You MUST NOT modify any file unless it is explicitly referenced in the step description or explicitly listed in the prompt as previously touched by this step. No exceptions.
+- In `mode: "apply"`, only modify files explicitly referenced in the step description.
+- In `mode: "fix_regression"`, you may modify any files necessary to resolve the reported build/test/lint failures **except** excluded paths. Prefer to keep changes minimal and focused on the failing area.
+- In `fix_regression` mode, you may also modify files previously touched by the step even if the regression arose in adjacent files; do not widen scope beyond the files involved in the apply output and any explicit context provided.
 - Respect all excluded paths: never read, write, or mention excluded files in `patch`, `filesTouched`, or `filesWritten`.
 - Prefer the **smallest possible patch** that fully implements the step or fixes the regression.
 - Use a unified diff `patch` with repo-relative paths and only the hunks required for this step.
@@ -54,7 +56,7 @@ Intent:
 - Implement the described step **from scratch**, as if this is the first time it runs.
 
 Rules:
-- Only touch files explicitly referenced in the step description.
+- Only touch files explicitly referenced in the step description. In `fix_regression`, you may touch any files needed to resolve the regression (tests, imports, build failures), except excluded paths.
 - Apply exactly the requested structural/code changes; do not widen scope to “cleanup nearby code”.
 - Generate a **minimal unified diff** that:
   - adds/removes/modifies only what the step requires,

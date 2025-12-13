@@ -76,7 +76,7 @@ describe("executePlanStep", () => {
       };
     });
 
-    const { result } = await executePlanStep({
+    const { result, thread } = await executePlanStep({
       stepText: "Do something",
       mode: "apply",
       model: "test-model",
@@ -95,6 +95,7 @@ describe("executePlanStep", () => {
       patch: "--- a/file\n+++ b/file\n@@\n-foo\n+bar\n",
       mode: "apply",
     });
+    expect(thread).toBeTruthy();
     expect(mockRunStreamed).toHaveBeenCalledTimes(1);
   });
 

@@ -1,7 +1,6 @@
-import { exec } from "child_process";
-import util from "util";
+import { spawn } from "child_process";
 
-const execAsync = util.promisify(exec);
+type Stream = "stdout" | "stderr";
 
 export type CommandResult = {
   ok: boolean;
@@ -10,22 +9,66 @@ export type CommandResult = {
   code: number;
 };
 
-async function runSingleCommand(cmd: string, cwd: string): Promise<CommandResult> {
-  try {
-    const { stdout, stderr } = await execAsync(cmd, { cwd });
-    return { ok: true, stdout, stderr, code: 0 };
-  } catch (error) {
-    const execError = error as { stdout?: string; stderr?: string; code?: number; signal?: string };
-    const code = typeof execError.code === "number" ? execError.code : 1;
-    return {
-      ok: false,
-      stdout: execError.stdout ?? "",
-      stderr: execError.stderr ?? "",
-      code,
+type RunCommandOptions = {
+  env?: NodeJS.ProcessEnv;
+  onStdout?: (chunk: string) => void;
+  onStderr?: (chunk: string) => void;
+};
+
+async function runSingleCommand(
+  cmd: string,
+  cwd: string,
+  options: RunCommandOptions = {}
+): Promise<CommandResult> {
+  return new Promise<CommandResult>((resolve) => {
+    const child = spawn(cmd, {
+      cwd,
+      env: { ...process.env, ...(options.env ?? {}) },
+      shell: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    const handleStream = (stream: Stream, chunk: Buffer | string): void => {
+      const text = chunk.toString();
+      if (stream === "stdout") {
+        stdout += text;
+        options.onStdout?.(text);
+      } else {
+        stderr += text;
+        options.onStderr?.(text);
+      }
     };
-  }
+
+    child.stdout?.on("data", (data) => handleStream("stdout", data));
+    child.stderr?.on("data", (data) => handleStream("stderr", data));
+
+    child.on("error", (err: { message?: string }) => {
+      resolve({
+        ok: false,
+        stdout,
+        stderr: `${stderr}${err?.message ?? ""}`,
+        code: 1,
+      });
+    });
+
+    child.on("close", (code) => {
+      const exitCode = typeof code === "number" ? code : 1;
+      resolve({
+        ok: exitCode === 0,
+        stdout,
+        stderr,
+        code: exitCode,
+      });
+    });
+  });
 }
 
-export async function runCommand(cmd: string, cwd: string): Promise<CommandResult> {
-  return runSingleCommand(cmd, cwd);
+export async function runCommand(
+  cmd: string,
+  cwd: string,
+  options: RunCommandOptions = {}
+): Promise<CommandResult> {
+  return runSingleCommand(cmd, cwd, options);
 }

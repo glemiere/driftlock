@@ -66,8 +66,9 @@ Reject when:
 
 Reject when:
 
-- the `patch` mentions a file path that is excluded or unrelated to the step intent
-- in `mode: "fix_regression"`, the executor touches files that were not part of this step’s `apply` changes (the orchestrator will describe the allowed set)
+- the `patch` mentions a file path that is excluded.
+- in `mode: "apply"`, the executor touches files unrelated to the step intent.
+- in `mode: "fix_regression"`, do **not** reject solely because the fix adjusts files outside the original step list; allow touching any non-excluded files needed to resolve the failure surfaced by the gate.
 
 The executor must never modify or claim to write files that the orchestrator has not explicitly authorized by the step intent or that fall under excluded paths.
 

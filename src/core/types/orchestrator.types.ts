@@ -1,5 +1,5 @@
 import type { DriftlockConfig } from "../config-loader";
-import type { ExecutePlanStepResult } from "../step/execute-plan-step";
+import type { ExecutePlanStepResult, ExecutorThread } from "../step/execute-plan-step";
 import type { CommandResult } from "../utils/run-commands";
 
 export type NoopPlan = { noop: true; reason?: string };
@@ -51,9 +51,9 @@ export type ParsedPlan = {
 };
 
 export type StepPhaseResult =
-  | { kind: "abort" }
-  | { kind: "retry"; additionalContext: string }
-  | { kind: "proceed"; execution: ExecutePlanStepResult; codeSnapshots: Record<string, string> };
+  | { kind: "abort"; thread?: ExecutorThread | null }
+  | { kind: "retry"; additionalContext: string; thread?: ExecutorThread | null }
+  | { kind: "proceed"; execution: ExecutePlanStepResult; codeSnapshots: Record<string, string>; thread: ExecutorThread | null };
 
 export type StepTracker = {
   recordAttempt(): boolean;
@@ -76,6 +76,7 @@ export type ExecuteStepPhaseArgs = {
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
   validateSchemaPath?: string;
+  thread: ExecutorThread | null;
 };
 
 export type QualityStageName = "build" | "test" | "lint";
@@ -113,6 +114,7 @@ export type StepExecutionState = {
   additionalContext: string;
   tracker: StepTracker;
   initialSnapshots: Record<string, string>;
+  thread: ExecutorThread | null;
 };
 
 export type StepDetails = {

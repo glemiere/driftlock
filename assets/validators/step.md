@@ -48,11 +48,13 @@ Reject (`valid: false`) if any apply:
      - missing required additions/removals/renames/extractions,
      - only superficial edits,
      - partial or symbolic changes that leave the intent unfulfilled.
+   - The patch removes or hides exported/public helpers, types, or symbols that are referenced in the provided snapshots (tests/fixtures) without replacing them with compatible equivalents. Do not accept “refactors” that break existing entry points.
 
 5) **Fix Regression: Behavior Reversal or Overreach**
    - In `mode: "fix_regression"`, the patch:
      - undoes or negates the original step instead of narrowly fixing regressions, or
      - expands into unrelated files or code paths not previously touched by this step, in an attempt to “fix” noisy/flaky failures.
+   - In `mode: "fix_regression"`, the patch is rejected if it attempts to reimplement the entire step from scratch instead of addressing the specific regression. It should be a targeted fix that restores missing symbols/behavior or corrects the failing paths noted in the prompt.
 
 6) **Unverifiable or Unrelated Changes**
    - Patch touches files or code not described in the step.
@@ -75,8 +77,8 @@ Reject (`valid: false`) if any apply:
 Approve (`valid: true`) when:
 - All touched/written files are declared, not excluded, and align with the step intent.
 - Patch is small, well-formed, and coherent with metadata.
-- Apply mode: the requested transformation is fully reflected in the patch.
-- Fix_regression mode: the patch is narrowly targeted to the regression without undoing the step.
+- Apply mode: the requested transformation is fully reflected in the patch, without breaking existing exported helpers/types relied on by the current code/tests.
+- Fix_regression mode: the patch is narrowly targeted to the regression (restore missing symbols, adjust the failing paths) without undoing the step or widening scope.
 - `summary` is concise and reusable in future prompts.
 - The validator must not infer intent outside of the step description; it must evaluate only what the executor produced, not what it *should* have produced.
 

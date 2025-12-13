@@ -10,6 +10,10 @@ export type LogHandle = {
   withSpinner: (name?: Parameters<typeof startSpinner>[0]) => SpinnerHandle;
 };
 
+function formatTimestamp(): string {
+  return new Date().toISOString().slice(11, 19); // HH:MM:SS
+}
+
 function trimBuffer(side: "left" | "right"): void {
   const buf = side === "left" ? state.left : state.right;
   if (buf.length > MAX_BUFFER) {
@@ -97,10 +101,11 @@ function push(side: "left" | "right", message: string, colorKey?: keyof typeof C
 }
 
 export function logLeft(message: string, colorKey?: keyof typeof COLORS): LogHandle {
+  const stamped = `[${formatTimestamp()}] ${message}`;
   const startIndex = state.left.length;
-  push("left", message, colorKey);
+  push("left", stamped, colorKey);
   const lineCount = state.left.length - startIndex;
-  return createLogHandle(message, colorKey, startIndex, lineCount);
+  return createLogHandle(stamped, colorKey, startIndex, lineCount);
 }
 
 export function logRight(message: string, colorKey?: keyof typeof COLORS): void {

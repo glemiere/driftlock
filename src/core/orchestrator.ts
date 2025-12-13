@@ -4,7 +4,7 @@ import { resolveModel } from "./utils/model-resolver";
 import { buildPlan } from "./plan/build-plan";
 import { validatePlan } from "./plan/validate-plan";
 import { validateStep } from "./step/validate-step";
-import type { ExecutePlanStepResult } from "./step/execute-plan-step";
+import type { ExecutePlanStepResult, ExecutorThread } from "./step/execute-plan-step";
 import type { DriftlockConfig } from "./config-loader";
 import type {
   GeneratePlanArgs,
@@ -46,52 +46,60 @@ export async function runAuditLoop(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const auditorName = auditors[index];
-    const hadPlan = await runSingleAuditor(auditorName, config, context);
+    const outcome = await runSingleAuditor(auditorName, config, context);
 
     if (tui.isExitRequested()) {
       tui.shutdown();
       process.exit(0);
     }
 
-    if (hadPlan) {
+    if (outcome === "success") {
       noPlanStreak = 0;
-    } else {
+    } else if (outcome === "no-plan") {
       noPlanStreak += 1;
       if (noPlanStreak >= auditors.length) {
         tui.logLeft("All auditors returned no plan consecutively; exiting.", "success");
         tui.shutdown();
         process.exit(0);
       }
+    } else {
+      // failure: do not count toward no-plan streak
+      noPlanStreak = 0;
     }
 
     index = (index + 1) % auditors.length;
   }
 }
 
+type AuditorOutcome = "success" | "no-plan" | "failed";
+
 async function runSingleAuditor(
   auditorName: string,
   config: DriftlockConfig,
   context: PlanContext
-): Promise<boolean> {
+): Promise<AuditorOutcome> {
   const auditor = config.auditors[auditorName];
-  if (!auditor || !auditor.enabled) return false;
+  if (!auditor || !auditor.enabled) return "no-plan";
 
-  const plan = await generatePlanForAuditor({
+  const planResult = await generatePlanForAuditor({
     auditorName,
     auditorPath: auditor.path,
     config,
     context,
   });
-  if (!plan) return false;
+  if (planResult.status === "noop") return "no-plan";
+  if (planResult.status === "error") return "failed";
+
+  const plan = planResult.plan;
 
   const isValid = await validatePlanForAuditor({ auditorName, plan, config, context });
-  if (!isValid) return false;
+  if (!isValid) return "failed";
 
   logPlan(auditorName, plan);
   const parsedPlan = parsePlan(plan);
   if (!parsedPlan || parsedPlan.plan.length === 0) {
     tui.logLeft(`[${auditorName}] no executable steps in plan.`, "warn");
-    return false;
+    return "no-plan";
   }
 
   const runtime = createStepRuntime({
@@ -99,15 +107,15 @@ async function runSingleAuditor(
     config,
     context,
     stepLabelPrefix: "step (requires a full green pass)",
-    gateFailureFallback: `Reached maxRetries (${config.maxValidationRetries}) without two consecutive build/test/lint passes.`,
+    gateFailureFallback: `Reached maxRetries (${config.maxValidationRetries || 1}) without a successful build/test/lint pass.`,
   });
 
   for (const item of parsedPlan.plan) {
     const executed = await executePlanItem(item, runtime);
-    if (!executed) return false;
+    if (!executed) return "failed";
   }
 
-  return true;
+  return "success";
 }
 
 async function createPlanContext(config: DriftlockConfig): Promise<PlanContext> {
@@ -183,16 +191,37 @@ async function runStepQualityGate(args: {
   const { auditorName, stepLabel, config, cwd, onCondenseTestFailure } = args;
 
   tui.logLeft(`[${auditorName}] quality gate for ${stepLabel}`, "accent");
-
   const stages = createQualityStages({ config, cwd, onCondenseTestFailure });
-  tui.logLeft(
-    `[${auditorName}] quality gate attempt 1/${config.maxValidationRetries} for ${stepLabel}`
-  );
+  const maxAttempts = Math.max(config.maxValidationRetries || 1, 1);
 
-  const gateResult = await runQualityStages(auditorName, stages);
-  if (gateResult.passed) return gateResult;
+  let attempt = 0;
+  let lastFailure: string | undefined;
 
-  const additionalContext = gateResult.additionalContext || `Reached maxRetries (${config.maxValidationRetries}) without a full build/test/lint pass.`;
+  while (attempt < maxAttempts) {
+    attempt += 1;
+    tui.logLeft(
+      `[${auditorName}] quality gate attempt ${attempt}/${maxAttempts} for ${stepLabel}`
+    );
+
+    const gateResult = await runQualityStages(auditorName, stages);
+    if (gateResult.passed) {
+      tui.logLeft(`[${auditorName}] quality gate passed for ${stepLabel}.`, "success");
+      return { passed: true };
+    }
+
+    lastFailure =
+      gateResult.additionalContext ||
+      `Quality gate failed at attempt ${attempt}/${maxAttempts} (build/test/lint).`;
+    tui.logLeft(`[${auditorName}] ${lastFailure}`, "warn");
+
+    if (attempt >= maxAttempts) {
+      break;
+    }
+  }
+
+  const additionalContext =
+    lastFailure ||
+    `Reached maxValidationRetries (${maxAttempts}) without a successful build/test/lint pass.`;
   return { passed: false, additionalContext };
 }
 
@@ -210,6 +239,7 @@ async function runRegressionForStep(args: {
   additionalContext: string;
   initialSnapshots: Record<string, string>;
   gateFailureFallback: string;
+  state: StepExecutionState;
 }): Promise<boolean> {
   const {
     auditorName,
@@ -223,6 +253,7 @@ async function runRegressionForStep(args: {
     tracker,
     initialSnapshots,
     gateFailureFallback,
+    state,
   } = args;
 
   let regressionAttempts = args.regressionAttempts;
@@ -246,14 +277,21 @@ async function runRegressionForStep(args: {
       executeStepValidatorPath: config.validators["execute-step"]?.path,
       executeStepValidatorModel: resolveModel(config, auditorName, "execute-step"),
       validateSchemaPath: context.validateStepSchemaPath,
+      thread: state.thread,
     });
 
-    if (execPhase.kind === "abort") return false;
+    if (execPhase.kind === "abort") {
+      state.thread = execPhase.thread ?? state.thread;
+      return false;
+    }
     if (execPhase.kind === "retry") {
       additionalContext = execPhase.additionalContext;
+      state.thread = execPhase.thread ?? state.thread;
       if (shouldAbortRegression(++regressionAttempts, tracker, config)) return false;
       continue;
     }
+
+    state.thread = execPhase.thread ?? state.thread;
 
     const validationPhase = await validateStepPhase({
       auditorName,
@@ -266,11 +304,16 @@ async function runRegressionForStep(args: {
       context,
       cwd,
       mode: "fix_regression",
+      thread: state.thread,
     });
 
-    if (validationPhase.kind === "abort") return false;
+    if (validationPhase.kind === "abort") {
+      state.thread = validationPhase.thread ?? state.thread;
+      return false;
+    }
     if (validationPhase.kind === "retry") {
       additionalContext = validationPhase.additionalContext;
+      state.thread = validationPhase.thread ?? state.thread;
       if (shouldAbortRegression(++regressionAttempts, tracker, config)) return false;
       continue;
     }
@@ -364,6 +407,7 @@ async function runStepPipeline(
   tui.logLeft(`[${runtime.auditorName}] starting step: ${step.displayStep}`);
 
   const applyPhase = await performApplyPhase(step, runtime, state);
+  state.thread = applyPhase.thread ?? state.thread;
   const applyDecision = await handlePhaseDecision({
     phaseName: "apply phase",
     phase: applyPhase,
@@ -376,6 +420,7 @@ async function runStepPipeline(
   if (applyPhase.kind !== "proceed") return false;
 
   const validationPhase = await performValidationPhase(step, runtime, state, applyPhase);
+  state.thread = validationPhase.thread ?? state.thread;
   const validationDecision = await handlePhaseDecision({
     phaseName: "validation phase",
     phase: validationPhase,
@@ -396,6 +441,7 @@ async function prepareStepState(runtime: StepRuntime): Promise<StepExecutionStat
     additionalContext: "",
     tracker: new ThreadAttemptTracker(runtime.config.maxThreadLifetimeAttempts),
     initialSnapshots: await readSnapshots([], runtime.cwd),
+    thread: null,
   };
 }
 
@@ -421,6 +467,7 @@ async function performApplyPhase(
     executeStepValidatorPath: runtime.executeStepValidatorPath,
     executeStepValidatorModel: runtime.executeStepValidatorModel,
     validateSchemaPath: runtime.context.validateStepSchemaPath,
+    thread: state.thread,
   });
 }
 
@@ -445,6 +492,7 @@ async function performValidationPhase(
     context: runtime.context,
     cwd: runtime.cwd,
     mode: "apply",
+    thread: state.thread,
   });
 }
 
@@ -456,6 +504,10 @@ async function handlePhaseDecision(args: {
   state: StepExecutionState;
 }): Promise<PhaseDecision> {
   const { phaseName, phase, runtime, step, state } = args;
+
+  if ("thread" in phase && phase.thread !== undefined) {
+    state.thread = (phase.thread as ExecutorThread | null) ?? state.thread;
+  }
 
   if (phase.kind === "abort") {
     tui.logLeft(
@@ -534,6 +586,7 @@ async function triggerRegression(
     additionalContext: state.additionalContext,
     initialSnapshots: state.initialSnapshots,
     gateFailureFallback: runtime.gateFailureFallback,
+    state,
   });
 }
 
@@ -574,7 +627,12 @@ async function evaluateQualityGate(args: {
   };
 }
 
-async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanResult> {
+type PlanFetchResult =
+  | { status: "success"; plan: PlanResult }
+  | { status: "noop" }
+  | { status: "error" };
+
+async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetchResult> {
   const { auditorName, auditorPath, config, context } = args;
   const model = resolveModel(config, auditorName);
 
@@ -593,14 +651,18 @@ async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanResul
     if (plan && isNoopPlan(plan)) {
       const reason = plan.reason ?? "No changes required";
       tui.logLeft(`[${auditorName}] no work: ${reason}`, "warn");
-      return null;
+      return { status: "noop" };
     }
 
-    return plan ?? null;
+    if (!plan) {
+      return { status: "error" };
+    }
+
+    return { status: "success", plan };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     tui.logLeft(`[${auditorName}] plan generation failed: ${message}`, "error");
-    return null;
+    return { status: "error" };
   }
 }
 
@@ -630,6 +692,15 @@ async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> 
   if (!validation.valid) {
     const reason = validation.reason || "Plan failed validation";
     tui.logLeft(`[${auditorName}] plan rejected: ${reason}`, "error");
+    const prettyPlan =
+      typeof plan === "string" ? plan : (() => {
+        try {
+          return JSON.stringify(plan, null, 2);
+        } catch {
+          return String(plan);
+        }
+      })();
+    tui.logLeft(`[${auditorName}] rejected plan content:\n${prettyPlan}`, "warn");
     return false;
   }
 
@@ -647,6 +718,7 @@ async function validateStepPhase(args: {
   context: PlanContext;
   cwd: string;
   mode: "apply" | "fix_regression";
+  thread?: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
   const {
     auditorName,
@@ -659,7 +731,13 @@ async function validateStepPhase(args: {
     context,
     cwd,
     mode,
+    thread,
   } = args;
+
+  // For regressions, skip semantic validation and defer safety to the quality gate.
+  if (mode === "fix_regression") {
+    return { kind: "proceed", execution, codeSnapshots, thread: thread ?? null };
+  }
 
   const filesForSnapshot = collectFiles(execution);
   if (!filesChanged(initialSnapshots, codeSnapshots, Array.from(filesForSnapshot))) {
@@ -671,7 +749,7 @@ async function validateStepPhase(args: {
     // metadata is inconsistent or the patch was effectively a no-op. Do not
     // schedule a regression based on this; the safest course is to abort the
     // step so the caller can decide whether to re-run apply or roll back.
-    return { kind: "abort" };
+    return { kind: "abort", thread: thread ?? null };
   }
 
   const stepValidation = await validateStep({
@@ -694,10 +772,11 @@ async function validateStepPhase(args: {
     return {
       kind: "retry",
       additionalContext: `Step validation failed: ${stepValidation.reason || "unknown"}`,
+      thread: thread ?? null,
     };
   }
 
-  return { kind: "proceed", execution, codeSnapshots };
+  return { kind: "proceed", execution, codeSnapshots, thread: thread ?? null };
 }
 
 function shouldAbortRegression(
