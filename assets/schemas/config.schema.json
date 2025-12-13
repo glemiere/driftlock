@@ -138,31 +138,6 @@
       "type": "integer",
       "minimum": 0,
       "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step (0 means unbounded)."
-    },
-    "failurePolicy": {
-      "type": "object",
-      "description": "Policy governing how the orchestrator reacts to step failures.",
-      "additionalProperties": false,
-      "properties": {
-        "maxConsecutiveStepFailures": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Abort when this many consecutive step failures occur."
-        },
-        "abortOnAnyStepFailure": {
-          "type": "boolean",
-          "description": "If true, abort immediately on the first failed step."
-        },
-        "requireAtLeastOneStepSuccess": {
-          "type": "boolean",
-          "description": "If true, consider the run failed when no step succeeded."
-        }
-      },
-      "required": [
-        "maxConsecutiveStepFailures",
-        "abortOnAnyStepFailure",
-        "requireAtLeastOneStepSuccess"
-      ]
     }
   },
   "required": ["auditors", "validators", "formatters"],

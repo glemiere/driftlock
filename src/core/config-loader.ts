@@ -41,11 +41,6 @@ export type DriftlockConfig = {
   maxValidationRetries: number;
   maxRegressionAttempts: number;
   maxThreadLifetimeAttempts: number;
-  failurePolicy: {
-    maxConsecutiveStepFailures: number;
-    abortOnAnyStepFailure: boolean;
-    requireAtLeastOneStepSuccess: boolean;
-  };
   exclude: string[];
   model?: string;
 };
@@ -77,11 +72,6 @@ type DriftlockConfigOverrides = {
   maxValidationRetries?: number;
   maxRegressionAttempts?: number;
   maxThreadLifetimeAttempts?: number;
-  failurePolicy?: {
-    maxConsecutiveStepFailures?: number;
-    abortOnAnyStepFailure?: boolean;
-    requireAtLeastOneStepSuccess?: boolean;
-  };
   exclude?: string[];
   model?: string;
 };
@@ -261,39 +251,6 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     );
   }
 
-  const failurePolicyRoot = root.failurePolicy;
-  if (!isPlainObject(failurePolicyRoot)) {
-    throw new Error('Default config "failurePolicy" must be an object.');
-  }
-
-  const {
-    maxConsecutiveStepFailures,
-    abortOnAnyStepFailure,
-    requireAtLeastOneStepSuccess,
-  } = failurePolicyRoot as {
-    maxConsecutiveStepFailures?: unknown;
-    abortOnAnyStepFailure?: unknown;
-    requireAtLeastOneStepSuccess?: unknown;
-  };
-
-  if (typeof maxConsecutiveStepFailures !== "number") {
-    throw new Error(
-      'Default config "failurePolicy.maxConsecutiveStepFailures" must be a number.'
-    );
-  }
-
-  if (typeof abortOnAnyStepFailure !== "boolean") {
-    throw new Error(
-      'Default config "failurePolicy.abortOnAnyStepFailure" must be a boolean.'
-    );
-  }
-
-  if (typeof requireAtLeastOneStepSuccess !== "boolean") {
-    throw new Error(
-      'Default config "failurePolicy.requireAtLeastOneStepSuccess" must be a boolean.'
-    );
-  }
-
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
   const formatters = normalizeDefaultFormatters(formattersObj);
@@ -348,11 +305,6 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
       typeof root.maxThreadLifetimeAttempts === "number"
         ? root.maxThreadLifetimeAttempts
         : 5,
-    failurePolicy: {
-      maxConsecutiveStepFailures,
-      abortOnAnyStepFailure,
-      requireAtLeastOneStepSuccess,
-    },
     formatters,
     exclude,
     model,
@@ -646,45 +598,6 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       );
     }
     overrides.maxThreadLifetimeAttempts = root.maxThreadLifetimeAttempts;
-  }
-
-  if (root.failurePolicy !== undefined) {
-    if (!isPlainObject(root.failurePolicy)) {
-      throw new Error('User config "failurePolicy" must be an object when provided.');
-    }
-
-    const policyRoot = root.failurePolicy as RawConfigObject;
-    const policyOverride: DriftlockConfigOverrides["failurePolicy"] = {};
-
-    if ("maxConsecutiveStepFailures" in policyRoot) {
-      if (typeof policyRoot.maxConsecutiveStepFailures !== "number") {
-        throw new Error(
-          'User config "failurePolicy.maxConsecutiveStepFailures" must be a number when provided.'
-        );
-      }
-      policyOverride.maxConsecutiveStepFailures = policyRoot.maxConsecutiveStepFailures;
-    }
-
-    if ("abortOnAnyStepFailure" in policyRoot) {
-      if (typeof policyRoot.abortOnAnyStepFailure !== "boolean") {
-        throw new Error(
-          'User config "failurePolicy.abortOnAnyStepFailure" must be a boolean when provided.'
-        );
-      }
-      policyOverride.abortOnAnyStepFailure = policyRoot.abortOnAnyStepFailure;
-    }
-
-    if ("requireAtLeastOneStepSuccess" in policyRoot) {
-      if (typeof policyRoot.requireAtLeastOneStepSuccess !== "boolean") {
-        throw new Error(
-          'User config "failurePolicy.requireAtLeastOneStepSuccess" must be a boolean when provided.'
-        );
-      }
-      policyOverride.requireAtLeastOneStepSuccess =
-        policyRoot.requireAtLeastOneStepSuccess;
-    }
-
-    overrides.failurePolicy = policyOverride;
   }
 
   return overrides;

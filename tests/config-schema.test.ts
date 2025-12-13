@@ -134,22 +134,6 @@ describe("config schema", () => {
     ).toThrow(/expected boolean/i);
   });
 
-  it("rejects failurePolicy missing required fields", () => {
-    const invalid = {
-      auditors: {},
-      validators: {},
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
-      failurePolicy: {
-        abortOnAnyStepFailure: false,
-        requireAtLeastOneStepSuccess: true,
-      },
-    };
-
-    expect(() =>
-      validateAgainstSchema(invalid, configSchema, { schemaName })
-    ).toThrow(/missing required key "maxConsecutiveStepFailures"/i);
-  });
-
   it("allows partial user config when allowPartial is true", () => {
     const partial = {
       auditors: {
@@ -171,11 +155,6 @@ describe("config schema", () => {
       maxValidationRetries: 5,
       maxRegressionAttempts: 2,
       maxThreadLifetimeAttempts: 4,
-      failurePolicy: {
-        maxConsecutiveStepFailures: 2,
-        abortOnAnyStepFailure: false,
-        requireAtLeastOneStepSuccess: true,
-      },
       commandsFailOnly: {
         build: "npm run build:fail-only",
         lint: "npm run lint:fail-only",

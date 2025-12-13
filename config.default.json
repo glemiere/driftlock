@@ -18,11 +18,6 @@
   "maxValidationRetries": 5,
   "maxRegressionAttempts": 10,
   "maxThreadLifetimeAttempts": 30,
-  "failurePolicy": {
-    "maxConsecutiveStepFailures": 1,
-    "abortOnAnyStepFailure": false,
-    "requireAtLeastOneStepSuccess": true
-  },
   "auditors": {
     "complexity": {
       "enabled": true,

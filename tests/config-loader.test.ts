@@ -39,9 +39,6 @@ describe("config-loader", () => {
     expect(typeof config.maxValidationRetries).toBe("number");
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
-    expect(typeof config.failurePolicy.maxConsecutiveStepFailures).toBe("number");
-    expect(typeof config.failurePolicy.abortOnAnyStepFailure).toBe("boolean");
-    expect(typeof config.failurePolicy.requireAtLeastOneStepSuccess).toBe("boolean");
   });
 
   it("supports optional commandsFailOnly in defaults and user overrides", async () => {

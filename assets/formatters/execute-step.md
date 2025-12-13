@@ -46,6 +46,7 @@ You never run build, tests, or lint yourself; you only react to their summarized
   - `filesTouched` (all files inspected or modified)
   - `filesWritten` (files actually written/patched)
  - You may NOT inspect or read unrelated files in the repository; only consider content provided in the prompt or files explicitly referenced for this step.
+- Do **not** run build, test, or lint commands; those are handled by the orchestrator’s quality gate. Only implement code/patches.
 
 
 ===========================================================
