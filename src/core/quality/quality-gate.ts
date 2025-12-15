@@ -26,7 +26,7 @@ export function checkQualityGateDisabled(args: {
   return {
     ok: true,
     attempts: 0,
-    summary: "Validation disabled (build/test/lint all disabled).",
+    summary: "Validation disabled (build/lint/test all disabled).",
   };
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { summarizeQualityFailure } from "../src/core/quality/quality-gate";
+import { createQualityStages } from "../src/core/quality/quality-gate-runner";
 
 describe("quality-gate summarizeQualityFailure", () => {
   it("returns a summary that only reflects the failing stage result", () => {
@@ -19,5 +20,21 @@ describe("quality-gate summarizeQualityFailure", () => {
     // Ensure no other stages are mentioned in the summary string.
     expect(summary).not.toContain("stage=test");
     expect(summary).not.toContain("stage=build");
+  });
+});
+
+describe("createQualityStages", () => {
+  it("orders stages to fail fast before tests", () => {
+    const stages = createQualityStages({
+      config: {
+        enableBuild: true,
+        enableLint: true,
+        enableTest: true,
+        commands: { build: "build", lint: "lint", test: "test" },
+      } as any,
+      cwd: process.cwd(),
+    });
+
+    expect(stages.map((stage) => stage.name)).toEqual(["build", "lint", "test"]);
   });
 });

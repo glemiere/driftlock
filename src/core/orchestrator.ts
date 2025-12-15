@@ -114,7 +114,7 @@ async function runSingleAuditor(
     config,
     context,
     stepLabelPrefix: "step (requires a full green pass)",
-    gateFailureFallback: `Reached maxRetries (${config.maxValidationRetries || 1}) without a successful build/test/lint pass.`,
+    gateFailureFallback: `Reached maxRetries (${config.maxValidationRetries || 1}) without a successful build/lint/test pass.`,
   });
 
   for (const item of parsedPlan.plan) {
@@ -199,7 +199,7 @@ async function maybeRunBaselineQualityGate(config: DriftlockConfig): Promise<voi
   const baseLineGateSpinner = tui.logLeft("Running the quality gate to make sure we have a clean base to work on.", "accent").withSpinner("dots");
   const baselineGate = await runStepQualityGate({
     auditorName: "baseline",
-    stepLabel: "baseline quality gate (build/test/lint before auditors)",
+    stepLabel: "baseline quality gate (build/lint/test before auditors)",
     config,
     cwd,
   });
@@ -207,14 +207,14 @@ async function maybeRunBaselineQualityGate(config: DriftlockConfig): Promise<voi
   if (!baselineGate.passed) {
     baseLineGateSpinner.failure(
       `Baseline quality gate failed: ${
-        baselineGate.additionalContext || "build/test/lint did not pass"
+        baselineGate.additionalContext || "build/lint/test did not pass"
       }`
     );
     tui.shutdown();
     process.exit(1);
   }
 
-  baseLineGateSpinner.success("Baseline quality gate passed (build/test/lint all green).");
+  baseLineGateSpinner.success("Baseline quality gate passed (build/lint/test all green).");
 }
 
 async function runStepQualityGate(args: {
@@ -247,7 +247,7 @@ async function runStepQualityGate(args: {
 
     lastFailure =
       gateResult.additionalContext ||
-      `Quality gate failed at attempt ${attempt}/${maxAttempts} (build/test/lint).`;
+      `Quality gate failed at attempt ${attempt}/${maxAttempts} (build/lint/test).`;
     tui.logLeft(`[${auditorName}] ${lastFailure}`, "warn");
 
     if (attempt >= maxAttempts) {
@@ -257,7 +257,7 @@ async function runStepQualityGate(args: {
 
   const additionalContext =
     lastFailure ||
-    `Reached maxValidationRetries (${maxAttempts}) without a successful build/test/lint pass.`;
+    `Reached maxValidationRetries (${maxAttempts}) without a successful build/lint/test pass.`;
   return { passed: false, additionalContext };
 }
 

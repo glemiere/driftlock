@@ -217,7 +217,7 @@ These are not required. When present, they can be used to give the regression lo
 
 The top-level config also includes `runBaselineQualityGate` (default: `true`):
 
-- When `true`, Driftlock runs a full `build` → `test` → `lint` cycle once before any auditor executes, to establish baseline health.
+- When `true`, Driftlock runs a full `build` → `lint` → `test` cycle once before any auditor executes, to establish baseline health.
 - When `false`, the orchestrator skips this baseline check and proceeds directly to auditor plans.
 
 Retry-related caps can also be tuned:

@@ -71,6 +71,18 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
       buildFailureDetail: summarizeStage("build"),
     },
     {
+      name: "lint",
+      enabled: context.config.enableLint,
+      run: () =>
+        runLint(
+          context.config.commands.lint,
+          context.cwd,
+          (chunk) => streamLogger("lint")("stdout", chunk),
+          (chunk) => streamLogger("lint")("stderr", chunk)
+        ),
+      buildFailureDetail: summarizeStage("lint"),
+    },
+    {
       name: "test",
       enabled: context.config.enableTest,
       run: () =>
@@ -82,18 +94,6 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
         ),
       buildFailureDetail: async (result: CommandResult) =>
         buildTestFailureDetail(result, context.onCondenseTestFailure),
-    },
-    {
-      name: "lint",
-      enabled: context.config.enableLint,
-      run: () =>
-        runLint(
-          context.config.commands.lint,
-          context.cwd,
-          (chunk) => streamLogger("lint")("stdout", chunk),
-          (chunk) => streamLogger("lint")("stderr", chunk)
-        ),
-      buildFailureDetail: summarizeStage("lint"),
     },
   ];
 }
