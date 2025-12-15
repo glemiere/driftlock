@@ -29,6 +29,7 @@ describe("validatePlan exclusions", () => {
 
   it("rejects plans that touch excluded paths", async () => {
     const plan = {
+      name: "Add central AGENTS.md",
       plan: [
         {
           action: "Add central AGENTS.md",
@@ -71,13 +72,14 @@ describe("validatePlan exclusions", () => {
     }));
 
     const plan = {
+      name: "Touch non-excluded file",
       plan: [
         {
           action: "Touch non-excluded file",
           why: "Safe",
           filesInvolved: ["README.md"],
           steps: ["Update README"],
-           supportiveEvidence: ["README.md exists and is not excluded"],
+          supportiveEvidence: ["README.md exists and is not excluded"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -111,6 +113,7 @@ describe("validatePlan exclusions", () => {
     }));
 
     const plan = {
+      name: "Touch non-excluded file",
       plan: [
         {
           action: "Touch non-excluded file",
@@ -142,7 +145,7 @@ describe("validatePlan exclusions", () => {
   });
 
   it("rejects invalid plan schema before validator", async () => {
-    const invalidPlan = { noop: false, reason: "missing required fields", plan: [{}] };
+    const invalidPlan = { name: "Invalid", noop: false, reason: "missing required fields", plan: [{}] };
 
     const result = await validatePlan({
       auditorName: "documentation",
@@ -171,6 +174,7 @@ describe("validatePlan exclusions", () => {
     }));
 
     const planObj = {
+      name: "Update README",
       plan: [
         {
           action: "Update README",

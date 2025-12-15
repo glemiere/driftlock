@@ -5,6 +5,7 @@ import { validateAgainstSchema } from "../src/utils/schema-validator";
 const schemaName = "Plan schema";
 
 const basePlan = {
+  name: "Example plan",
   noop: false,
   reason: "Work identified",
   plan: [
@@ -43,12 +44,12 @@ describe("plan schema", () => {
     );
   });
 
-  it("allows optional top-level name", () => {
-    const valid = {
-      ...basePlan,
-      name: "My plan name",
-    };
-    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
+  it("rejects missing top-level name", () => {
+    const invalid = { ...basePlan };
+    delete (invalid as { name?: string }).name;
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /missing required key "name"/i
+    );
   });
 
   it("allows empty filesInvolved array (per schema)", () => {
@@ -195,6 +196,7 @@ describe("plan schema", () => {
 
   it("rejects noop without reason", () => {
     const invalid = {
+      name: "noop",
       noop: true,
       plan: [],
     };

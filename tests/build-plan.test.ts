@@ -39,7 +39,10 @@ describe("buildPlan", () => {
         events: (async function* () {
           yield {
             type: "item.completed",
-            item: { type: "agent_message", text: JSON.stringify({ plan: [], noop: true, reason: "noop" }) },
+            item: {
+              type: "agent_message",
+              text: JSON.stringify({ name: "noop", plan: [], noop: true, reason: "noop" }),
+            },
           };
         })(),
       };
@@ -56,7 +59,7 @@ describe("buildPlan", () => {
       workingDirectory: process.cwd(),
     });
 
-    expect(result).toEqual({ plan: [], noop: true, reason: "noop" });
+    expect(result).toEqual({ name: "noop", plan: [], noop: true, reason: "noop" });
     expect(mockRunStreamed).toHaveBeenCalledTimes(1);
   });
 });
