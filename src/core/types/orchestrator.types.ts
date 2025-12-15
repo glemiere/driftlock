@@ -48,6 +48,7 @@ export type ParsedPlan = {
   plan: PlanItem[];
   noop?: boolean;
   reason?: string;
+  name?: string;
 };
 
 export type StepPhaseResult =

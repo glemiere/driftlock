@@ -43,6 +43,14 @@ describe("plan schema", () => {
     );
   });
 
+  it("allows optional top-level name", () => {
+    const valid = {
+      ...basePlan,
+      name: "My plan name",
+    };
+    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
+  });
+
   it("allows empty filesInvolved array (per schema)", () => {
     const valid = {
       ...basePlan,

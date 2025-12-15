@@ -25,6 +25,11 @@ Constraints:
 Aesthetic principle:
 - Your plan should embody elegance and clarity—write with the precision and structure of classical music.
 
+Top-level plan fields:
+- `name` (string): a concise name for the plan (used for commit messages).
+- `plan`: array of plan items (see below).
+- `noop` (boolean) and `reason` (string) as described later.
+
 Each plan item must include:
 - a `steps` array containing 1–N atomic, stateless instructions, and
 - a `supportiveEvidence` array tying each step to concrete findings in the codebase (file paths, snippets, or short descriptions of observations).

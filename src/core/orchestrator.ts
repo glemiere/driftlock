@@ -6,6 +6,7 @@ import { validatePlan } from "./plan/validate-plan";
 import { validateStep } from "./step/validate-step";
 import type { ExecutePlanStepResult, ExecutorThread } from "./step/execute-plan-step";
 import type { DriftlockConfig } from "./config-loader";
+import type { GitContext } from "./git-manager";
 import type {
   GeneratePlanArgs,
   PlanContext,
@@ -32,11 +33,14 @@ import { executeStepPhase } from "./step/step-runner";
 import { ThreadAttemptTracker } from "./utils/thread-tracker";
 import { parsePlan, isNoopPlan, logPlan } from "./plan/plan-utils";
 import { collectFiles, readSnapshots, filesChanged } from "./step/snapshots";
+import { commitPlanChanges, rollbackPatches, type AppliedPatch } from "./rollback";
+import { pushBranch } from "./git-manager";
 export { ThreadAttemptTracker } from "./utils/thread-tracker";
 
 export async function runAuditLoop(
   auditors: string[],
-  config: DriftlockConfig
+  config: DriftlockConfig,
+  gitContext?: GitContext
 ): Promise<void> {
   const context = await createPlanContext(config);
   await maybeRunBaselineQualityGate(config);
@@ -46,7 +50,7 @@ export async function runAuditLoop(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const auditorName = auditors[index];
-    const outcome = await runSingleAuditor(auditorName, config, context);
+    const outcome = await runSingleAuditor(auditorName, config, context, gitContext);
 
     if (tui.isExitRequested()) {
       tui.shutdown();
@@ -76,11 +80,13 @@ type AuditorOutcome = "success" | "no-plan" | "failed";
 async function runSingleAuditor(
   auditorName: string,
   config: DriftlockConfig,
-  context: PlanContext
+  context: PlanContext,
+  gitContext?: GitContext
 ): Promise<AuditorOutcome> {
   const auditor = config.auditors[auditorName];
   if (!auditor || !auditor.enabled) return "no-plan";
 
+  const appliedPatches: AppliedPatch[] = [];
   const planResult = await generatePlanForAuditor({
     auditorName,
     auditorPath: auditor.path,
@@ -101,6 +107,7 @@ async function runSingleAuditor(
     tui.logLeft(`[${auditorName}] no executable steps in plan.`, "warn");
     return "no-plan";
   }
+  const planName = parsedPlan.name || (typeof plan === "object" && plan && (plan as { name?: string }).name) || null;
 
   const runtime = createStepRuntime({
     auditorName,
@@ -111,11 +118,40 @@ async function runSingleAuditor(
   });
 
   for (const item of parsedPlan.plan) {
-    const executed = await executePlanItem(item, runtime);
-    if (!executed) return "failed";
+    const executed = await executePlanItem(item, runtime, appliedPatches);
+    if (!executed) {
+      await safeRollback(appliedPatches, runtime.cwd, auditorName);
+      return "failed";
+    }
+  }
+
+  const commitMessage = planName ? planName : `[driftlock] ${auditorName} plan`;
+  const committed = await commitPlanChanges(commitMessage, runtime.cwd);
+  if (!committed) {
+    tui.logLeft(`[${auditorName}] commit skipped or failed (no changes to commit?).`, "warn");
+  } else {
+    tui.logLeft(`[${auditorName}] plan committed: ${commitMessage}`, "success");
+    if (gitContext?.branch) {
+      await pushBranch(gitContext, runtime.cwd);
+    }
   }
 
   return "success";
+}
+
+async function safeRollback(
+  patches: AppliedPatch[],
+  cwd: string,
+  auditorName: string
+): Promise<void> {
+  if (patches.length === 0) return;
+  try {
+    await rollbackPatches(patches, cwd);
+    tui.logLeft(`[${auditorName}] rolled back plan changes.`, "warn");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    tui.logLeft(`[${auditorName}] rollback failed: ${message}`, "error");
+  }
 }
 
 async function createPlanContext(config: DriftlockConfig): Promise<PlanContext> {
@@ -380,7 +416,8 @@ function createStepRuntime(args: {
 
 async function executePlanItem(
   item: PlanItem,
-  runtime: StepRuntime
+  runtime: StepRuntime,
+  appliedPatches: AppliedPatch[]
 ): Promise<boolean> {
   const steps = Array.isArray(item.steps) ? item.steps : [];
 
@@ -389,9 +426,15 @@ async function executePlanItem(
       displayStep: stepText,
       stepWithContext: buildStepPromptWithContext(stepText, item),
     };
-    const success = await runStepPipeline(stepDetails, runtime);
-    if (!success) {
+    const outcome = await runStepPipeline(stepDetails, runtime);
+    if (!outcome.success) {
       return false;
+    }
+    if (outcome.execution?.patch) {
+      appliedPatches.push({
+        patch: outcome.execution.patch,
+        description: stepDetails.displayStep,
+      });
     }
   }
 
@@ -401,13 +444,17 @@ async function executePlanItem(
 async function runStepPipeline(
   step: StepDetails,
   runtime: StepRuntime
-): Promise<boolean> {
+): Promise<{ success: boolean; execution?: ExecutePlanStepResult }> {
   const state = await prepareStepState(runtime);
+  let lastExecution: ExecutePlanStepResult | undefined;
   
   tui.logLeft(`[${runtime.auditorName}] starting step: ${step.displayStep}`);
 
   const applyPhase = await performApplyPhase(step, runtime, state);
   state.thread = applyPhase.thread ?? state.thread;
+  if (applyPhase.kind === "proceed") {
+    lastExecution = applyPhase.execution;
+  }
   const applyDecision = await handlePhaseDecision({
     phaseName: "apply phase",
     phase: applyPhase,
@@ -415,12 +462,15 @@ async function runStepPipeline(
     step,
     state,
   });
-  if (applyDecision === "abort") return false;
-  if (applyDecision === "completed") return true;
-  if (applyPhase.kind !== "proceed") return false;
+  if (applyDecision === "abort") return { success: false };
+  if (applyDecision === "completed") return { success: true, execution: lastExecution };
+  if (applyPhase.kind !== "proceed") return { success: false };
 
   const validationPhase = await performValidationPhase(step, runtime, state, applyPhase);
   state.thread = validationPhase.thread ?? state.thread;
+  if (validationPhase.kind === "proceed") {
+    lastExecution = validationPhase.execution;
+  }
   const validationDecision = await handlePhaseDecision({
     phaseName: "validation phase",
     phase: validationPhase,
@@ -428,11 +478,12 @@ async function runStepPipeline(
     step,
     state,
   });
-  if (validationDecision === "abort") return false;
-  if (validationDecision === "completed") return true;
-  if (validationPhase.kind !== "proceed") return false;
+  if (validationDecision === "abort") return { success: false };
+  if (validationDecision === "completed") return { success: true, execution: lastExecution };
+  if (validationPhase.kind !== "proceed") return { success: false };
 
-  return enforceQualityGate(step, runtime, state);
+  const gateSuccess = await enforceQualityGate(step, runtime, state);
+  return { success: gateSuccess, execution: lastExecution };
 }
 
 async function prepareStepState(runtime: StepRuntime): Promise<StepExecutionState> {

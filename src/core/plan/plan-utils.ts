@@ -16,6 +16,7 @@ export function parsePlan(plan: unknown): ParsedPlan | null {
     plan: items,
     noop: (plan as { noop?: boolean }).noop,
     reason: (plan as { reason?: string }).reason,
+    name: (plan as { name?: string }).name,
   };
 }
 

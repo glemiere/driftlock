@@ -18,6 +18,12 @@ describe("runCommand", () => {
     expect(result.ok).toBe(false);
     expect(result.code).toBe(2);
   });
+
+  it("supports stdin input", async () => {
+    const result = await runCommand("cat", cwd, { input: "hello" });
+    expect(result.ok).toBe(true);
+    expect(result.stdout.trim()).toBe("hello");
+  });
 });
 
 describe("checkQualityGateDisabled", () => {

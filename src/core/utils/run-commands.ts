@@ -13,6 +13,8 @@ type RunCommandOptions = {
   env?: NodeJS.ProcessEnv;
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
+  input?: string;
+  allowNonZeroExit?: boolean;
 };
 
 async function runSingleCommand(
@@ -44,6 +46,11 @@ async function runSingleCommand(
     child.stdout?.on("data", (data) => handleStream("stdout", data));
     child.stderr?.on("data", (data) => handleStream("stderr", data));
 
+    if (options.input !== undefined && child.stdin) {
+      child.stdin.write(options.input);
+      child.stdin.end();
+    }
+
     child.on("error", (err: { message?: string }) => {
       resolve({
         ok: false,
@@ -56,7 +63,7 @@ async function runSingleCommand(
     child.on("close", (code) => {
       const exitCode = typeof code === "number" ? code : 1;
       resolve({
-        ok: exitCode === 0,
+        ok: options.allowNonZeroExit ? true : exitCode === 0,
         stdout,
         stderr,
         code: exitCode,

@@ -1,6 +1,7 @@
 import { loadConfig } from "../../core/config-loader";
 import { runAuditLoop } from "../../core/orchestrator";
 import { tui } from "../tui";
+import { ensureDriftlockBranch, restoreBranch, openPullRequest } from "../../core/git-manager";
 
 export async function runAuditCommand(
   auditorsArg?: string,
@@ -36,13 +37,20 @@ export async function runAuditCommand(
     return;
   }
 
+  const cwd = process.cwd();
+  const gitContext = await ensureDriftlockBranch(cwd);
+
   const headerInfo = `auditors: ${auditors.join(", ")}`;
   tui.setHeaderInfo(headerInfo);
   tui.logLeft(`Running Driftlock audit for: ${auditors.join(", ")}`);
 
   try {
-    await runAuditLoop(auditors, config);
+    await runAuditLoop(auditors, config, gitContext);
+    if (gitContext.branch) {
+      await openPullRequest(gitContext, cwd);
+    }
   } finally {
+    await restoreBranch(gitContext, cwd);
     tui.shutdown();
   }
 }
