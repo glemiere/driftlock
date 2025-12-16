@@ -189,29 +189,19 @@ These schemas complement the human-readable Markdown formatters by providing str
 - Validates:
   - `auditors` map and each auditor’s `enabled`, `path`, `validators`, optional `model`  
   - `validators` map (name → object with `path` and optional `model`)  
-  - `formatters.plan`, `formatters.schema`, optional `model`  
-  - top-level `exclude` array and optional `model`  
+  - `formatters` entries (`plan`, `executeStep`, `testFailureSummary`) with `path`, `schema`, optional `model`  
+  - top-level `exclude` array and top-level default `model`  
 - Editors and tooling can use this schema (via the `$schema` field in `config.default.json` or your own `driftlock.config.json`) to provide validation and autocomplete for configuration changes.
 
-### Commands and fail-only variants
+### Quality gate stages
 
-The top-level config also defines shell commands used by the quality gate:
+The top-level `qualityGate` config defines the fail-fast stage commands:
 
-- `commands.build` — build/typecheck command (non-zero exit code on failure).  
-- `commands.test` — test command (non-zero exit code on failure).  
-- `commands.lint` — lint command (non-zero exit code on failure).  
+- `qualityGate.build` — `{ enabled, run }` build/typecheck stage.  
+- `qualityGate.lint` — `{ enabled, run }` lint stage.  
+- `qualityGate.test` — `{ enabled, run }` test stage.  
 
-Optionally, you can provide **fail-only / concise variants** via `commandsFailOnly`:
-
-```jsonc
-"commandsFailOnly": {
-  "build": "npm run build:fail-only",
-  "test": "npm run test:fail-only",
-  "lint": "npm run lint:fail-only"
-}
-```
-
-These are not required. When present, they can be used to give the regression loop shorter, failure-focused logs while still relying on `commands.*` and exit codes for actual pass/fail decisions.
+Stages run in order: `build` → `lint` → `test`, and Driftlock stops at the first failure.
 
 ### Baseline quality gate
 
@@ -219,6 +209,13 @@ The top-level config also includes `runBaselineQualityGate` (default: `true`):
 
 - When `true`, Driftlock runs a full `build` → `lint` → `test` cycle once before any auditor executes, to establish baseline health.
 - When `false`, the orchestrator skips this baseline check and proceeds directly to auditor plans.
+
+### Pull request automation
+
+When Driftlock is running on a `driftlock/*` branch and has committed changes, it can open a GitHub PR when the run ends.
+
+- `pullRequest.enabled` — enable/disable automatic PR creation.
+- `pullRequest.formatter` — `{ path, schema, model }` used to generate a PR title/body summary of all committed plans (falls back to `gh pr create --fill` if summarization fails).
 
 Retry-related caps can also be tuned:
 

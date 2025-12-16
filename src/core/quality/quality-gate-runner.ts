@@ -1,6 +1,6 @@
 import path from "path";
 import { tui } from "../../cli/tui";
-import { resolveModel } from "../utils/model-resolver";
+import { resolveTestFailureSummaryModel } from "../utils/model-resolver";
 import { summarizeTestFailures } from "./summarize-test-failures";
 import {
   runBuild,
@@ -29,10 +29,10 @@ export function createTestFailureCondenser(
     const summary = await summarizeTestFailures({
       stdout,
       stderr,
-      model: resolveModel(config, auditorName, "step"),
+      model: resolveTestFailureSummaryModel(config, auditorName),
       workingDirectory: cwd,
-      formatterPath: assetsPath("sanitazors", "quality-tests.md"),
-      schemaPath: assetsPath("schemas", "test-failure-summary.schema.json"),
+      formatterPath: config.formatters.testFailureSummary.path,
+      schemaPath: config.formatters.testFailureSummary.schema,
       onEvent: (text) => tui.logRight(text),
       onInfo: (text) => tui.logLeft(text),
     });
@@ -60,10 +60,10 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
   return [
     {
       name: "build",
-      enabled: context.config.enableBuild,
+      enabled: context.config.qualityGate.build.enabled,
       run: () =>
         runBuild(
-          context.config.commands.build,
+          context.config.qualityGate.build.run,
           context.cwd,
           (chunk) => streamLogger("build")("stdout", chunk),
           (chunk) => streamLogger("build")("stderr", chunk)
@@ -72,10 +72,10 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
     },
     {
       name: "lint",
-      enabled: context.config.enableLint,
+      enabled: context.config.qualityGate.lint.enabled,
       run: () =>
         runLint(
-          context.config.commands.lint,
+          context.config.qualityGate.lint.run,
           context.cwd,
           (chunk) => streamLogger("lint")("stdout", chunk),
           (chunk) => streamLogger("lint")("stderr", chunk)
@@ -84,10 +84,10 @@ export function createQualityStages(context: QualityStageContext): QualityStage[
     },
     {
       name: "test",
-      enabled: context.config.enableTest,
+      enabled: context.config.qualityGate.test.enabled,
       run: () =>
         runTest(
-          context.config.commands.test,
+          context.config.qualityGate.test.run,
           context.cwd,
           (chunk) => streamLogger("test")("stdout", chunk),
           (chunk) => streamLogger("test")("stderr", chunk)

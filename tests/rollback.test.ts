@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { rollbackPatches, commitPlanChanges } from "../src/core/rollback";
+import { rollbackPatches } from "../src/core/git/rollback";
+import { commitPlanChanges } from "../src/core/git/git-manager";
 import * as runCommands from "../src/core/utils/run-commands";
 
 jest.mock("../src/core/utils/run-commands");

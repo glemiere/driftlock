@@ -44,23 +44,14 @@
     },
     "formatters": {
       "type": "object",
-      "description": "Paths to formatter definitions and associated schemas.",
+      "description": "Formatter + schema assets used by Driftlock stages.",
       "additionalProperties": false,
       "properties": {
-        "plan": {
-          "type": "string",
-          "description": "Path to the canonical plan formatter markdown."
-        },
-        "schema": {
-          "type": "string",
-          "description": "Path to the JSON Schema used to validate plans."
-        },
-        "model": {
-          "type": "string",
-          "description": "Optional model override for formatter stage."
-        }
+        "plan": { "$ref": "#/$defs/formatterConfig" },
+        "executeStep": { "$ref": "#/$defs/formatterConfig" },
+        "testFailureSummary": { "$ref": "#/$defs/formatterConfig" }
       },
-      "required": ["plan", "schema"]
+      "required": ["plan", "executeStep", "testFailureSummary"]
     },
     "exclude": {
       "type": "array",
@@ -69,65 +60,24 @@
         "type": "string"
       }
     },
-    "commands": {
+    "qualityGate": {
       "type": "object",
-      "description": "Shell commands used for linting and testing.",
+      "description": "Quality gate stage configuration (fail-fast order is build → lint → test).",
       "additionalProperties": false,
       "properties": {
-        "build": {
-          "type": "string",
-          "description": "Command to run build/typecheck."
-        },
-        "lint": {
-          "type": "string",
-          "description": "Command to run lint checks."
-        },
-        "test": {
-          "type": "string",
-          "description": "Command to run tests."
-        }
-      },
-      "required": ["build", "lint", "test"]
-    },
-    "commandsFailOnly": {
-      "type": "object",
-      "description": "Optional commands that produce concise, failure-focused output for build/test/lint.",
-      "additionalProperties": false,
-      "properties": {
-        "build": {
-          "type": "string",
-          "description": "Alternative build/typecheck command optimized for short, failure-only output."
-        },
-        "lint": {
-          "type": "string",
-          "description": "Alternative lint command optimized for short, failure-only output."
-        },
-        "test": {
-          "type": "string",
-          "description": "Alternative test command optimized for short, failure-only output."
-        }
+        "build": { "$ref": "#/$defs/qualityStageConfig" },
+        "lint": { "$ref": "#/$defs/qualityStageConfig" },
+        "test": { "$ref": "#/$defs/qualityStageConfig" }
       }
-    },
-    "enableBuild": {
-      "type": "boolean",
-      "description": "Whether build should be run during validation loops."
-    },
-    "enableLint": {
-      "type": "boolean",
-      "description": "Whether lint should be run during validation loops."
-    },
-    "enableTest": {
-      "type": "boolean",
-      "description": "Whether tests should be run during validation loops."
     },
     "runBaselineQualityGate": {
       "type": "boolean",
-      "description": "Whether to run a full build/test/lint cycle once before any auditors execute."
+      "description": "Whether to run a full build/lint/test cycle once before any auditors execute."
     },
     "maxValidationRetries": {
       "type": "integer",
       "minimum": 0,
-      "description": "Maximum number of attempts allowed in the lint/test validation loop per step."
+      "description": "Maximum number of attempts allowed in the build/lint/test validation loop per step."
     },
     "maxRegressionAttempts": {
       "type": "integer",
@@ -138,6 +88,21 @@
       "type": "integer",
       "minimum": 0,
       "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step (0 means unbounded)."
+    },
+    "pullRequest": {
+      "type": "object",
+      "description": "Configuration for opening a GitHub Pull Request at the end of a run.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether to open a PR automatically when Driftlock exits and changes were committed."
+        },
+        "formatter": {
+          "$ref": "#/$defs/formatterConfig"
+        }
+      },
+      "required": ["enabled", "formatter"]
     }
   },
   "required": ["auditors", "validators", "formatters"],
@@ -169,6 +134,36 @@
         }
       },
       "required": ["enabled", "path", "validators"]
+    },
+    "formatterConfig": {
+      "type": "object",
+      "description": "Formatter configuration (prompt + output schema) for a Driftlock stage.",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the formatter markdown."
+        },
+        "schema": {
+          "type": "string",
+          "description": "Path to the JSON Schema used to validate/shape the stage output."
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model override for this formatter-driven stage."
+        }
+      },
+      "required": ["path", "schema"]
+    },
+    "qualityStageConfig": {
+      "type": "object",
+      "description": "Quality gate stage configuration.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "run": { "type": "string" }
+      },
+      "required": ["enabled", "run"]
     }
   }
 }

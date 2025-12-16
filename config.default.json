@@ -1,78 +1,103 @@
 {
   "$schema": "./assets/schemas/config.schema.json",
   "model": "gpt-5.1-codex-max",
-  "commands": {
-    "build": "npm run build",
-    "test": "npm run test",
-    "lint": "npm run lint"
+  "qualityGate": {
+    "build": { "enabled": true, "run": "npm run build" },
+    "lint": { "enabled": true, "run": "npm run lint" },
+    "test": { "enabled": true, "run": "npm run test" }
   },
-  "commandsFailOnly": {
-    "build": "",
-    "test": "",
-    "lint": ""
-  },
-  "enableBuild": true,
-  "enableLint": true,
-  "enableTest": true,
   "runBaselineQualityGate": true,
   "maxValidationRetries": 5,
   "maxRegressionAttempts": 10,
   "maxThreadLifetimeAttempts": 30,
+  "pullRequest": {
+    "enabled": true,
+    "formatter": {
+      "path": "./assets/formatters/pull-request.md",
+      "schema": "./assets/schemas/pull-request.schema.json",
+      "model": "gpt-5.1-codex-mini"
+    }
+  },
   "auditors": {
     "complexity": {
       "enabled": true,
       "path": "./assets/auditors/complexity.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "consistency": {
       "enabled": true,
       "path": "./assets/auditors/consistency.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "dependency": {
       "enabled": false,
       "path": "./assets/auditors/dependency.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "documentation": {
       "enabled": false,
       "path": "./assets/auditors/documentation.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "modularity": {
       "enabled": true,
       "path": "./assets/auditors/modularity.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "performance": {
       "enabled": true,
       "path": "./assets/auditors/performance.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "quality": {
       "enabled": true,
       "path": "./assets/auditors/quality.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "reliability": {
       "enabled": true,
       "path": "./assets/auditors/reliability.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     },
     "security": {
       "enabled": true,
       "path": "./assets/auditors/security.md",
-      "validators": ["plan"]
+      "validators": ["plan"],
+      "model": "gpt-5.1-codex-max"
     }
   },
   "validators": {
-    "plan": { "path": "./assets/validators/plan.md" },
-    "execute-step": { "path": "./assets/validators/execute-step.md" },
-    "step": { "path": "./assets/validators/step.md" }
+    "plan": { "path": "./assets/validators/plan.md", "model": "gpt-5.1-codex-max" },
+    "execute-step": {
+      "path": "./assets/validators/execute-step.md",
+      "model": "gpt-5.1-codex-max"
+    },
+    "step": { "path": "./assets/validators/step.md", "model": "gpt-5.1-codex-max" }
   },
   "formatters": {
-    "plan": "./assets/formatters/plan.md",
-    "schema": "./assets/schemas/plan.schema.json"
+    "plan": {
+      "path": "./assets/formatters/plan.md",
+      "schema": "./assets/schemas/plan.schema.json",
+      "model": "gpt-5.1-codex-max"
+    },
+    "executeStep": {
+      "path": "./assets/formatters/execute-step.md",
+      "schema": "./assets/schemas/execute-step.schema.json",
+      "model": "gpt-5.1-codex-max"
+    },
+    "testFailureSummary": {
+      "path": "./assets/sanitazors/quality-tests.md",
+      "schema": "./assets/schemas/test-failure-summary.schema.json",
+      "model": "gpt-5.1-codex-max"
+    }
   },
   "exclude": []
 }

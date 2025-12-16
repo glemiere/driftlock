@@ -26,7 +26,7 @@ You will be given:
 
 - A short description of the repository and its stack.
 - Baseline failure summaries for build, test, and lint (if any).
-- The current configuration: commands, exclude paths, and relevant project layout.
+- The current configuration: quality gate stages (build/lint/test), exclude paths, and relevant project layout.
 
 Respect:
 
@@ -58,4 +58,3 @@ return a noop instead of a risky plan:
 ```json
 { "noop": true, "reason": "Baseline sanitazor: failures require architectural changes; human intervention needed." }
 ```
-

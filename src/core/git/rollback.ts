@@ -1,4 +1,4 @@
-import { runCommand } from "./utils/run-commands";
+import { runCommand } from "../utils/run-commands";
 
 export type AppliedPatch = {
   patch: string;
@@ -19,13 +19,4 @@ export async function rollbackPatches(
       );
     }
   }
-}
-
-export async function commitPlanChanges(message: string, cwd: string): Promise<boolean> {
-  const addResult = await runCommand("git add -A", cwd);
-  if (!addResult.ok) {
-    return false;
-  }
-  const commitResult = await runCommand(`git commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
-  return commitResult.ok;
 }

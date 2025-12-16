@@ -6,6 +6,18 @@ import { validateAgainstSchema } from "../src/utils/schema-validator";
 const schemaName = "Config schema";
 
 describe("config schema", () => {
+  const minimalFormatters = {
+    plan: { path: "./formatters/plan.md", schema: "./schemas/plan.schema.json" },
+    executeStep: {
+      path: "./formatters/execute-step.md",
+      schema: "./schemas/execute-step.schema.json",
+    },
+    testFailureSummary: {
+      path: "./sanitazors/quality-tests.md",
+      schema: "./schemas/test-failure-summary.schema.json",
+    },
+  };
+
   it("accepts default config", () => {
     expect(() =>
       validateAgainstSchema(defaultConfig, configSchema, { schemaName })
@@ -22,7 +34,7 @@ describe("config schema", () => {
     const invalid = {
       auditors: {},
       validators: {},
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
       extra: true,
     };
 
@@ -37,7 +49,7 @@ describe("config schema", () => {
         security: { enabled: true },
       },
       validators: { plan: { path: "./validators/plan.md" } },
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
     };
 
     expect(() =>
@@ -49,7 +61,7 @@ describe("config schema", () => {
     const invalid = {
       auditors: {},
       validators: { plan: { path: 123 } },
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
     };
 
     expect(() =>
@@ -67,7 +79,7 @@ describe("config schema", () => {
         },
       },
       validators: { plan: { path: "./validators/plan.md" } },
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
     };
 
     expect(() =>
@@ -79,7 +91,7 @@ describe("config schema", () => {
     const invalid = {
       auditors: {},
       validators: {},
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
       exclude: [1, 2],
     };
 
@@ -96,7 +108,7 @@ describe("config schema", () => {
         "execute-step": { path: "./validators/execute-step.md" },
         step: { path: "./validators/step.md" },
       },
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
+      formatters: minimalFormatters,
     };
 
     expect(() =>
@@ -104,15 +116,13 @@ describe("config schema", () => {
     ).not.toThrow();
   });
 
-  it("rejects commands with non-string fields", () => {
+  it("rejects qualityGate stage run when not string", () => {
     const invalid = {
       auditors: {},
       validators: {},
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
-      commands: {
-        build: 123,
-        lint: "npm run lint",
-        test: "npm test",
+      formatters: minimalFormatters,
+      qualityGate: {
+        build: { enabled: true, run: 123 },
       },
     };
 
@@ -121,17 +131,57 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
-  it("rejects enableBuild when not boolean", () => {
+  it("rejects qualityGate stage enabled when not boolean", () => {
     const invalid = {
       auditors: {},
       validators: {},
-      formatters: { plan: "./plan.md", schema: "./plan.schema.json" },
-      enableBuild: "true",
+      formatters: minimalFormatters,
+      qualityGate: {
+        build: { enabled: "true", run: "npm run build" },
+      },
     };
 
     expect(() =>
       validateAgainstSchema(invalid, configSchema, { schemaName })
     ).toThrow(/expected boolean/i);
+  });
+
+  it("rejects pullRequest enabled when not boolean", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: minimalFormatters,
+      pullRequest: {
+        enabled: "true",
+        formatter: {
+          path: "./formatters/pull-request.md",
+          schema: "./schemas/pull-request.schema.json",
+        },
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected boolean/i);
+  });
+
+  it("rejects pullRequest formatter path when not string", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: minimalFormatters,
+      pullRequest: {
+        enabled: true,
+        formatter: {
+          path: 123,
+          schema: "./schemas/pull-request.schema.json",
+        },
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected string/i);
   });
 
   it("allows partial user config when allowPartial is true", () => {
@@ -143,22 +193,21 @@ describe("config schema", () => {
           validators: ["plan"],
         },
       },
-      commands: {
-        build: "npm run build",
-        lint: "npm run lint",
-        test: "npm test",
+      qualityGate: {
+        build: { enabled: false, run: "npm run build" },
+        lint: { enabled: false, run: "npm run lint" },
+        test: { enabled: true, run: "npm test" },
       },
-      enableBuild: false,
-      enableLint: false,
-      enableTest: true,
       runBaselineQualityGate: true,
       maxValidationRetries: 5,
       maxRegressionAttempts: 2,
       maxThreadLifetimeAttempts: 4,
-      commandsFailOnly: {
-        build: "npm run build:fail-only",
-        lint: "npm run lint:fail-only",
-        test: "npm run test:fail-only",
+      pullRequest: {
+        enabled: true,
+        formatter: {
+          path: "./formatters/pull-request.md",
+          schema: "./schemas/pull-request.schema.json",
+        },
       },
     };
 

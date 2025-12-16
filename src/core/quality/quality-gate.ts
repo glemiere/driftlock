@@ -13,13 +13,14 @@ export type QualityGateResult = {
   summary?: string;
 };
 
-export function checkQualityGateDisabled(args: {
-  enableBuild: boolean;
-  enableTest: boolean;
-  enableLint: boolean;
+type StageToggle = { enabled: boolean };
+
+export function checkQualityGateDisabled(stages: {
+  build: StageToggle;
+  lint: StageToggle;
+  test: StageToggle;
 }): QualityGateResult | null {
-  const { enableBuild, enableTest, enableLint } = args;
-  const allDisabled = !enableBuild && !enableTest && !enableLint;
+  const allDisabled = !stages.build.enabled && !stages.lint.enabled && !stages.test.enabled;
 
   if (!allDisabled) return null;
 

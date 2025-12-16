@@ -28,27 +28,48 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
     expect(path.isAbsolute(config.validators["execute-step"].path)).toBe(true);
     expect(path.isAbsolute(config.validators.step.path)).toBe(true);
-    expect(path.isAbsolute(config.formatters.plan)).toBe(true);
+    expect(path.isAbsolute(config.formatters.plan.path)).toBe(true);
+    expect(path.isAbsolute(config.formatters.plan.schema)).toBe(true);
+    expect(path.isAbsolute(config.formatters.executeStep.path)).toBe(true);
+    expect(path.isAbsolute(config.formatters.executeStep.schema)).toBe(true);
+    expect(path.isAbsolute(config.formatters.testFailureSummary.path)).toBe(true);
+    expect(path.isAbsolute(config.formatters.testFailureSummary.schema)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
-    expect(typeof config.commands.build).toBe("string");
-    expect(typeof config.commands.lint).toBe("string");
-    expect(typeof config.commands.test).toBe("string");
-    expect(typeof config.enableBuild).toBe("boolean");
-    expect(typeof config.enableLint).toBe("boolean");
-    expect(typeof config.enableTest).toBe("boolean");
+    expect(typeof config.qualityGate.build.run).toBe("string");
+    expect(typeof config.qualityGate.lint.run).toBe("string");
+    expect(typeof config.qualityGate.test.run).toBe("string");
+    expect(typeof config.qualityGate.build.enabled).toBe("boolean");
+    expect(typeof config.qualityGate.lint.enabled).toBe("boolean");
+    expect(typeof config.qualityGate.test.enabled).toBe("boolean");
+    expect(typeof config.pullRequest.enabled).toBe("boolean");
+    expect(path.isAbsolute(config.pullRequest.formatter.path)).toBe(true);
+    expect(path.isAbsolute(config.pullRequest.formatter.schema)).toBe(true);
     expect(typeof config.maxValidationRetries).toBe("number");
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
   });
 
-  it("supports optional commandsFailOnly in defaults and user overrides", async () => {
+  it("supports model overrides for auditors, validators, and formatters", async () => {
     await withTempDir(async (dir) => {
       const userConfig = {
-        commandsFailOnly: {
-          build: "npm run build:fail-only",
-          test: "npm run test:fail-only",
+        model: "default-model",
+        auditors: {
+          security: { model: "auditor-model" },
+        },
+        validators: {
+          plan: { path: "./validators/plan.md", model: "validator-model" },
+        },
+        formatters: {
+          executeStep: { model: "formatter-model" },
+        },
+        pullRequest: {
+          formatter: { model: "pr-model" },
         },
       };
+
+      const validatorDir = path.join(dir, "validators");
+      await fs.mkdir(validatorDir, { recursive: true });
+      await fs.writeFile(path.join(validatorDir, "plan.md"), "# plan validator");
 
       await fs.writeFile(
         path.join(dir, "driftlock.config.json"),
@@ -58,11 +79,11 @@ describe("config-loader", () => {
       process.chdir(dir);
 
       const config = await loadConfig();
-      expect(config.commandsFailOnly).toBeDefined();
-      expect(config.commandsFailOnly?.build).toBe("npm run build:fail-only");
-      expect(config.commandsFailOnly?.test).toBe("npm run test:fail-only");
-      // default config currently sets empty strings; user overrides should not clear unspecified keys
-      expect(typeof config.commandsFailOnly?.lint).toBe("string");
+      expect(config.model).toBe("default-model");
+      expect(config.auditors.security.model).toBe("auditor-model");
+      expect(config.validators.plan.model).toBe("validator-model");
+      expect(config.formatters.executeStep.model).toBe("formatter-model");
+      expect(config.pullRequest.formatter.model).toBe("pr-model");
     });
   });
 
@@ -388,12 +409,14 @@ describe("config-loader", () => {
     });
   });
 
-  it("rejects user attempts to override formatters", async () => {
+  it("rejects formatter overrides pointing to unreadable paths", async () => {
     await withTempDir(async (dir) => {
       const userConfig = {
         formatters: {
-          plan: "./custom/plan.md",
-          schema: "./custom/plan.schema.json",
+          plan: {
+            path: "./missing/plan.md",
+            schema: "./missing/plan.schema.json",
+          },
         },
       };
 
@@ -404,7 +427,9 @@ describe("config-loader", () => {
 
       process.chdir(dir);
 
-      await expect(loadConfig()).rejects.toThrow(/may not override formatters/i);
+      await expect(loadConfig()).rejects.toThrow(
+        /Formatter "plan" path does not exist or is not readable/i
+      );
     });
   });
 

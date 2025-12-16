@@ -27,10 +27,11 @@ describe("createQualityStages", () => {
   it("orders stages to fail fast before tests", () => {
     const stages = createQualityStages({
       config: {
-        enableBuild: true,
-        enableLint: true,
-        enableTest: true,
-        commands: { build: "build", lint: "lint", test: "test" },
+        qualityGate: {
+          build: { enabled: true, run: "build" },
+          lint: { enabled: true, run: "lint" },
+          test: { enabled: true, run: "test" },
+        },
       } as any,
       cwd: process.cwd(),
     });

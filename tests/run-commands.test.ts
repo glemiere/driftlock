@@ -29,9 +29,9 @@ describe("runCommand", () => {
 describe("checkQualityGateDisabled", () => {
   it("short-circuits when validation is disabled", () => {
     const result = checkQualityGateDisabled({
-      enableBuild: false,
-      enableTest: false,
-      enableLint: false,
+      build: { enabled: false },
+      lint: { enabled: false },
+      test: { enabled: false },
     });
 
     expect(result?.ok).toBe(true);
@@ -41,9 +41,9 @@ describe("checkQualityGateDisabled", () => {
 
   it("returns null when any gate is enabled", () => {
     const result = checkQualityGateDisabled({
-      enableBuild: true,
-      enableTest: false,
-      enableLint: false,
+      build: { enabled: true },
+      lint: { enabled: false },
+      test: { enabled: false },
     });
 
     expect(result).toBeNull();
