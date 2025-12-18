@@ -1,5 +1,6 @@
 import path from "path";
 import { readJsonFile, readTextFile } from "../../utils/fs";
+import type { ReasoningEffort } from "../config-loader";
 import {
   combinePrompts,
   combineWithCoreContext,
@@ -7,18 +8,21 @@ import {
   extractAgentText,
   formatCodexError,
   formatEvent,
+  normalizeModelReasoningEffort,
   parseJsonSafe,
 } from "../utils/codex-utils";
 
 type StepMode = "apply" | "fix_regression";
 export type ExecutorThread = {
   runStreamed: RunStreamed;
+  driftlock?: { model: string; reasoning?: ReasoningEffort };
 };
 
 export type ExecutePlanStepOptions = {
   stepText: string;
   mode: StepMode;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
@@ -52,6 +56,7 @@ export async function executePlanStep(
     stepText,
     mode,
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -67,7 +72,13 @@ export async function executePlanStep(
   const basePrompt = combinePrompts(buildStepPrompt(stepText, mode), formatter);
   const combinedPrompt = combineWithCoreContext(coreContext ?? null, basePrompt);
 
-  onInfo?.(`[execute-step] running executor in mode="${mode}" with model: ${model}`);
+  const normalizedReasoning = normalizeModelReasoningEffort(model, reasoning);
+
+  onInfo?.(
+    `[execute-step] running executor in mode="${mode}" with model: ${model}${
+      normalizedReasoning ? ` (reasoning: ${normalizedReasoning})` : ""
+    }`
+  );
 
   let latestAgentMessage: string | null = null;
   let parsed: ExecutePlanStepResult | undefined;
@@ -75,17 +86,28 @@ export async function executePlanStep(
   let thread: ExecutorThread | null = providedThread ?? null;
 
   try {
-    if (!thread) {
+    const shouldStartNewThread =
+      !thread ||
+      thread.driftlock?.model !== model ||
+      thread.driftlock?.reasoning !== normalizedReasoning;
+
+    if (shouldStartNewThread) {
       const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>(
         "@openai/codex-sdk"
       );
       const codex = new Codex();
       thread = codex.startThread({
         model,
+        modelReasoningEffort: normalizedReasoning,
         workingDirectory,
         sandboxMode: "workspace-write",
         skipGitRepoCheck: true,
-      });
+      }) as unknown as ExecutorThread;
+      thread.driftlock = { model, reasoning: normalizedReasoning };
+    }
+
+    if (!thread) {
+      throw new Error("Failed to start Codex thread.");
     }
 
     const streamed = await streamExecutorEvents(

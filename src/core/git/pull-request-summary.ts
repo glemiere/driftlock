@@ -1,9 +1,11 @@
 import { readJsonFile, readTextFile } from "../../utils/fs";
+import type { ReasoningEffort } from "../config-loader";
 import {
   dynamicImport,
   extractAgentText,
   formatCodexError,
   formatEvent,
+  normalizeModelReasoningEffort,
   parseJsonSafe,
 } from "../utils/codex-utils";
 
@@ -21,6 +23,7 @@ export type PullRequestSummary = {
 
 export async function summarizePullRequest(options: {
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
@@ -32,6 +35,7 @@ export async function summarizePullRequest(options: {
 }): Promise<PullRequestSummary | null> {
   const {
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -46,12 +50,17 @@ export async function summarizePullRequest(options: {
     const formatter = await readTextFile(formatterPath);
     const schema = (await readJsonFile(schemaPath)) as unknown;
 
-    onInfo?.(`[pull-request] generating PR summary with model: ${model}`);
+    onInfo?.(
+      `[pull-request] generating PR summary with model: ${model}${
+        reasoning ? ` (reasoning: ${reasoning})` : ""
+      }`
+    );
 
     const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>("@openai/codex-sdk");
     const codex = new Codex();
     const thread = codex.startThread({
       model,
+      modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
       skipGitRepoCheck: true,
     });
@@ -109,4 +118,3 @@ function buildPrompt(args: {
   );
   return `${formatter.trim()}\n\nRUN_SUMMARY_JSON:\n${payload}`;
 }
-

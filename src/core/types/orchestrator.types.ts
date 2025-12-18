@@ -1,4 +1,4 @@
-import type { DriftlockConfig } from "../config-loader";
+import type { DriftlockConfig, ReasoningEffort } from "../config-loader";
 import type { ExecutePlanStepResult, ExecutorThread } from "../step/execute-plan-step";
 import type { CommandResult } from "../utils/run-commands";
 
@@ -67,6 +67,7 @@ export type ExecuteStepPhaseArgs = {
   stepText: string;
   mode: "apply" | "fix_regression";
   model: string;
+  reasoning?: ReasoningEffort;
   formatterPath: string;
   schemaPath: string;
   coreContext?: string | null;
@@ -76,6 +77,7 @@ export type ExecuteStepPhaseArgs = {
   tracker: StepTracker;
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
+  executeStepValidatorReasoning?: ReasoningEffort;
   validateSchemaPath?: string;
   thread: ExecutorThread | null;
 };
@@ -102,9 +104,14 @@ export type StepRuntime = {
   stepLabelPrefix: string;
   gateFailureFallback: string;
   model: string;
+  regressionModel: string;
   validatorModel: string;
+  reasoning?: ReasoningEffort;
+  regressionReasoning?: ReasoningEffort;
+  validatorReasoning?: ReasoningEffort;
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
+  executeStepValidatorReasoning?: ReasoningEffort;
   cwd: string;
   excludePaths: string[];
   condense: (stdout: string, stderr: string) => Promise<string | undefined>;

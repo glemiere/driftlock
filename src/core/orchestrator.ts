@@ -2,14 +2,17 @@ import { promises as fs } from "fs";
 import { tui } from "../cli/tui";
 import {
   resolveAuditorModel,
+  resolveAuditorReasoning,
   resolveExecuteStepModel,
+  resolveExecuteStepReasoning,
   resolveValidatorModel,
+  resolveValidatorReasoning,
 } from "./utils/model-resolver";
 import { buildPlan } from "./plan/build-plan";
 import { validatePlan } from "./plan/validate-plan";
 import { validateStep } from "./step/validate-step";
 import type { ExecutePlanStepResult, ExecutorThread } from "./step/execute-plan-step";
-import type { DriftlockConfig } from "./config-loader";
+import type { DriftlockConfig, ReasoningEffort } from "./config-loader";
 import type { GitContext } from "./git/git-manager";
 import type {
   GeneratePlanArgs,
@@ -37,7 +40,7 @@ import { executeStepPhase } from "./step/step-runner";
 import { ThreadAttemptTracker } from "./utils/thread-tracker";
 import { parsePlan, isNoopPlan, logPlan } from "./plan/plan-utils";
 import { collectFiles, readSnapshots, filesChanged } from "./step/snapshots";
-import { rollbackPatches, type AppliedPatch } from "./git/rollback";
+import { rollbackPatches, rollbackWorkingTree, type AppliedPatch } from "./git/rollback";
 import { commitPlanChanges, pushBranch } from "./git/git-manager";
 export { ThreadAttemptTracker } from "./utils/thread-tracker";
 
@@ -54,6 +57,10 @@ export async function runAuditLoop(
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    if (tui.isExitRequested()) {
+      return { exitReason: "user_exit", committedPlans };
+    }
+
     const auditorName = auditors[index];
     const outcome = await runSingleAuditor(auditorName, config, context, gitContext);
 
@@ -142,7 +149,7 @@ async function runSingleAuditor(
     config,
     context,
     stepLabelPrefix: "step (requires a full green pass)",
-    gateFailureFallback: `Reached maxRetries (${config.maxValidationRetries || 1}) without a successful build/lint/test pass.`,
+    gateFailureFallback: "Quality gate failed (build/lint/test).",
   });
 
   for (const item of parsedPlan.plan) {
@@ -183,13 +190,18 @@ async function safeRollback(
   cwd: string,
   auditorName: string
 ): Promise<void> {
-  if (patches.length === 0) return;
+  const spinner = tui
+    .logLeft(`[${auditorName}] rolling back plan changes.`, "warn")
+    .withSpinner("dots");
   try {
-    await rollbackPatches(patches, cwd);
-    tui.logLeft(`[${auditorName}] rolled back plan changes.`, "warn");
+    if (patches.length > 0) {
+      await rollbackPatches(patches, cwd);
+    }
+    await rollbackWorkingTree(cwd);
+    spinner.success(`[${auditorName}] rolled back plan changes.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    tui.logLeft(`[${auditorName}] rollback failed: ${message}`, "error");
+    spinner.failure(`[${auditorName}] rollback failed: ${message}`);
   }
 }
 
@@ -263,44 +275,35 @@ async function runStepQualityGate(args: {
   const stages = createQualityStages({ config, cwd, onCondenseTestFailure });
   const configuredMaxAttempts =
     typeof args.maxAttempts === "number" ? args.maxAttempts : config.maxValidationRetries;
-  const maxAttempts = Math.max(configuredMaxAttempts || 1, 1);
+  const requiredPasses = Math.max(configuredMaxAttempts || 1, 1);
 
-  let attempt = 0;
-  let lastFailure: string | undefined;
-
-  while (attempt < maxAttempts) {
-    attempt += 1;
+  for (let pass = 1; pass <= requiredPasses; pass += 1) {
     tui.logLeft(
-      `[${auditorName}] quality gate attempt ${attempt}/${maxAttempts} for ${stepLabel}`
+      `[${auditorName}] quality gate pass ${pass}/${requiredPasses} for ${stepLabel}`
     );
 
     const gateResult = await runQualityStages(auditorName, stages);
-    if (gateResult.passed) {
-      tui.logLeft(`[${auditorName}] quality gate passed for ${stepLabel}.`, "success");
-      return { passed: true };
-    }
-
-    lastFailure =
-      gateResult.additionalContext ||
-      `Quality gate failed at attempt ${attempt}/${maxAttempts} (build/lint/test).`;
-    tui.logLeft(`[${auditorName}] ${lastFailure}`, "warn");
-
-    if (attempt >= maxAttempts) {
-      break;
+    if (!gateResult.passed) {
+      return {
+        passed: false,
+        additionalContext:
+          gateResult.additionalContext ||
+          `Quality gate failed during pass ${pass}/${requiredPasses} (build/lint/test).`,
+      };
     }
   }
 
-  const additionalContext =
-    lastFailure ||
-    `Reached maxValidationRetries (${maxAttempts}) without a successful build/lint/test pass.`;
-  return { passed: false, additionalContext };
+  tui.logLeft(`[${auditorName}] quality gate passed for ${stepLabel}.`, "success");
+  return { passed: true };
 }
 
 async function runRegressionForStep(args: {
   auditorName: string;
   stepText: string;
   model: string;
+  reasoning?: ReasoningEffort;
   validatorModel: string;
+  validatorReasoning?: ReasoningEffort;
   config: DriftlockConfig;
   context: PlanContext;
   cwd: string;
@@ -316,7 +319,9 @@ async function runRegressionForStep(args: {
     auditorName,
     stepText,
     model,
+    reasoning,
     validatorModel,
+    validatorReasoning,
     config,
     context,
     cwd,
@@ -338,6 +343,7 @@ async function runRegressionForStep(args: {
       stepText,
       mode: "fix_regression",
       model,
+      reasoning,
       formatterPath: context.executeFormatterPath,
       schemaPath: context.executeSchemaPath,
       coreContext: context.coreContext,
@@ -347,6 +353,7 @@ async function runRegressionForStep(args: {
       tracker,
       executeStepValidatorPath: config.validators["execute-step"]?.path,
       executeStepValidatorModel: resolveValidatorModel(config, auditorName, "execute-step"),
+      executeStepValidatorReasoning: resolveValidatorReasoning(config, auditorName, "execute-step"),
       validateSchemaPath: context.validateStepSchemaPath,
       thread: state.thread,
     });
@@ -371,6 +378,7 @@ async function runRegressionForStep(args: {
       codeSnapshots: execPhase.codeSnapshots,
       initialSnapshots,
       validatorModel,
+      validatorReasoning,
       config,
       context,
       cwd,
@@ -427,9 +435,14 @@ function createStepRuntime(args: {
   stepLabelPrefix: string;
   gateFailureFallback: string;
   model?: string;
+  regressionModel?: string;
   validatorModel?: string;
+  reasoning?: ReasoningEffort;
+  regressionReasoning?: ReasoningEffort;
+  validatorReasoning?: ReasoningEffort;
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
+  executeStepValidatorReasoning?: ReasoningEffort;
 }): StepRuntime {
   const cwd = process.cwd();
   return {
@@ -438,12 +451,27 @@ function createStepRuntime(args: {
     context: args.context,
     stepLabelPrefix: args.stepLabelPrefix,
     gateFailureFallback: args.gateFailureFallback,
-    model: args.model ?? resolveExecuteStepModel(args.config, args.auditorName),
+    model: args.model ?? resolveExecuteStepModel(args.config, args.auditorName, "apply"),
+    regressionModel:
+      args.regressionModel ??
+      resolveExecuteStepModel(args.config, args.auditorName, "fix_regression"),
     validatorModel:
       args.validatorModel ??
       resolveValidatorModel(args.config, args.auditorName, "step"),
+    reasoning:
+      args.reasoning ??
+      resolveExecuteStepReasoning(args.config, args.auditorName, "apply"),
+    regressionReasoning:
+      args.regressionReasoning ??
+      resolveExecuteStepReasoning(args.config, args.auditorName, "fix_regression"),
+    validatorReasoning:
+      args.validatorReasoning ??
+      resolveValidatorReasoning(args.config, args.auditorName, "step"),
     executeStepValidatorPath: args.executeStepValidatorPath,
     executeStepValidatorModel: args.executeStepValidatorModel,
+    executeStepValidatorReasoning:
+      args.executeStepValidatorReasoning ??
+      resolveValidatorReasoning(args.config, args.auditorName, "execute-step"),
     cwd,
     excludePaths: args.config.exclude,
     condense: createTestFailureCondenser(args.config, args.auditorName, cwd),
@@ -544,6 +572,7 @@ async function performApplyPhase(
     stepText: step.stepWithContext,
     mode: "apply",
     model: runtime.model,
+    reasoning: runtime.reasoning,
     formatterPath: runtime.context.executeFormatterPath,
     schemaPath: runtime.context.executeSchemaPath,
     coreContext: runtime.context.coreContext,
@@ -553,6 +582,7 @@ async function performApplyPhase(
     tracker: state.tracker,
     executeStepValidatorPath: runtime.executeStepValidatorPath,
     executeStepValidatorModel: runtime.executeStepValidatorModel,
+    executeStepValidatorReasoning: runtime.executeStepValidatorReasoning,
     validateSchemaPath: runtime.context.validateStepSchemaPath,
     thread: state.thread,
   });
@@ -575,6 +605,7 @@ async function performValidationPhase(
     codeSnapshots: exec.codeSnapshots,
     initialSnapshots: state.initialSnapshots,
     validatorModel: runtime.validatorModel,
+    validatorReasoning: runtime.validatorReasoning,
     config: runtime.config,
     context: runtime.context,
     cwd: runtime.cwd,
@@ -662,8 +693,10 @@ async function triggerRegression(
   return runRegressionForStep({
     auditorName: runtime.auditorName,
     stepText: step.displayStep,
-    model: runtime.model,
+    model: runtime.regressionModel,
+    reasoning: runtime.regressionReasoning,
     validatorModel: runtime.validatorModel,
+    validatorReasoning: runtime.validatorReasoning,
     config: runtime.config,
     context: runtime.context,
     cwd: runtime.cwd,
@@ -722,12 +755,14 @@ type PlanFetchResult =
 async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetchResult> {
   const { auditorName, auditorPath, config, context } = args;
   const model = resolveAuditorModel(config, auditorName);
+  const reasoning = resolveAuditorReasoning(config, auditorName);
 
   try {
     const plan = await buildPlan({
       auditorName,
       auditorPath,
       model,
+      reasoning,
       planFormatter: context.planFormatter,
       planSchema: context.planSchema,
       workingDirectory: process.cwd(),
@@ -770,6 +805,7 @@ async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> 
     planSchemaPath: config.formatters.plan.schema,
     validateSchemaPath: context.validateSchemaPath,
     model: resolveValidatorModel(config, auditorName, validatorName),
+    reasoning: resolveValidatorReasoning(config, auditorName, validatorName),
     excludePaths: config.exclude,
     workingDirectory: process.cwd(),
     onEvent: (text) => tui.logRight(text),
@@ -801,6 +837,7 @@ async function validateStepPhase(args: {
   codeSnapshots: Record<string, string>;
   initialSnapshots: Record<string, string>;
   validatorModel: string;
+  validatorReasoning?: ReasoningEffort;
   config: DriftlockConfig;
   context: PlanContext;
   cwd: string;
@@ -814,6 +851,7 @@ async function validateStepPhase(args: {
     codeSnapshots,
     initialSnapshots,
     validatorModel,
+    validatorReasoning,
     config,
     context,
     cwd,
@@ -846,6 +884,7 @@ async function validateStepPhase(args: {
     validatorPath: config.validators.step.path,
     validateSchemaPath: context.validateStepSchemaPath,
     model: validatorModel,
+    reasoning: validatorReasoning,
     workingDirectory: cwd,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),

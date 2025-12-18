@@ -1,6 +1,9 @@
 import path from "path";
 import { tui } from "../../cli/tui";
-import { resolveTestFailureSummaryModel } from "../utils/model-resolver";
+import {
+  resolveTestFailureSummaryModel,
+  resolveTestFailureSummaryReasoning,
+} from "../utils/model-resolver";
 import { summarizeTestFailures } from "./summarize-test-failures";
 import {
   runBuild,
@@ -30,6 +33,7 @@ export function createTestFailureCondenser(
       stdout,
       stderr,
       model: resolveTestFailureSummaryModel(config, auditorName),
+      reasoning: resolveTestFailureSummaryReasoning(config, auditorName),
       workingDirectory: cwd,
       formatterPath: config.formatters.testFailureSummary.path,
       schemaPath: config.formatters.testFailureSummary.schema,

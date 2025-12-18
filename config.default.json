@@ -1,13 +1,14 @@
 {
   "$schema": "./assets/schemas/config.schema.json",
-  "model": "gpt-5.1-codex-max",
+  "model": "gpt-5.1-codex",
+  "reasoning": "low",
   "qualityGate": {
     "build": { "enabled": true, "run": "npm run build" },
     "lint": { "enabled": true, "run": "npm run lint" },
     "test": { "enabled": true, "run": "npm run test" }
   },
   "runBaselineQualityGate": true,
-  "maxValidationRetries": 5,
+  "maxValidationRetries": 1,
   "maxRegressionAttempts": 10,
   "maxThreadLifetimeAttempts": 30,
   "pullRequest": {
@@ -15,7 +16,8 @@
     "formatter": {
       "path": "./assets/formatters/pull-request.md",
       "schema": "./assets/schemas/pull-request.schema.json",
-      "model": "gpt-5.1-codex-mini"
+      "model": "gpt-5.1-codex-mini",
+      "reasoning": "low"
     }
   },
   "auditors": {
@@ -23,80 +25,103 @@
       "enabled": true,
       "path": "./assets/auditors/complexity.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "consistency": {
       "enabled": true,
       "path": "./assets/auditors/consistency.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "dependency": {
       "enabled": false,
       "path": "./assets/auditors/dependency.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "documentation": {
       "enabled": false,
       "path": "./assets/auditors/documentation.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "modularity": {
       "enabled": true,
       "path": "./assets/auditors/modularity.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "performance": {
       "enabled": true,
       "path": "./assets/auditors/performance.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "quality": {
       "enabled": true,
       "path": "./assets/auditors/quality.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "reliability": {
       "enabled": true,
       "path": "./assets/auditors/reliability.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
     "security": {
       "enabled": true,
       "path": "./assets/auditors/security.md",
       "validators": ["plan"],
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     }
   },
   "validators": {
-    "plan": { "path": "./assets/validators/plan.md", "model": "gpt-5.1-codex-max" },
+    "plan": {
+      "path": "./assets/validators/plan.md",
+      "model": "gpt-5.2",
+      "reasoning": "high"
+    },
     "execute-step": {
       "path": "./assets/validators/execute-step.md",
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.2",
+      "reasoning": "high"
     },
-    "step": { "path": "./assets/validators/step.md", "model": "gpt-5.1-codex-max" }
+    "step": {
+      "path": "./assets/validators/step.md",
+      "model": "gpt-5.2",
+      "reasoning": "medium"
+    }
   },
   "formatters": {
     "plan": {
       "path": "./assets/formatters/plan.md",
       "schema": "./assets/schemas/plan.schema.json",
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.1-codex",
+      "reasoning": "low"
     },
     "executeStep": {
       "path": "./assets/formatters/execute-step.md",
       "schema": "./assets/schemas/execute-step.schema.json",
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.1-codex",
+      "fixRegressionModel": "gpt-5.1-codex",
+      "reasoning": "medium",
+      "fixRegressionReasoning": "low"
     },
     "testFailureSummary": {
       "path": "./assets/sanitazors/quality-tests.md",
       "schema": "./assets/schemas/test-failure-summary.schema.json",
-      "model": "gpt-5.1-codex-max"
+      "model": "gpt-5.1-codex-mini",
+      "reasoning": "low"
     }
   },
   "exclude": []

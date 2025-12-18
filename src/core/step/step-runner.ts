@@ -1,6 +1,7 @@
 import { tui } from "../../cli/tui";
 import { executePlanStep, type ExecutorThread, type ExecutePlanStepResult } from "./execute-plan-step";
 import { validateExecuteStep } from "./validate-execute-step";
+import type { ReasoningEffort } from "../config-loader";
 import {
   type ExecuteStepPhaseArgs,
   type StepPhaseResult,
@@ -44,6 +45,7 @@ async function runExecutor(args: {
   stepText: string;
   mode: "apply" | "fix_regression";
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
@@ -57,6 +59,7 @@ async function runExecutor(args: {
     stepText,
     mode,
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -71,6 +74,7 @@ async function runExecutor(args: {
     stepText: formatStepText(stepText, additionalContext),
     mode,
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -112,6 +116,7 @@ async function runExecuteStepValidator(args: {
   workingDirectory: string;
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
+  executeStepValidatorReasoning?: ReasoningEffort;
   validateSchemaPath?: string;
   thread: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
@@ -124,6 +129,7 @@ async function runExecuteStepValidator(args: {
     workingDirectory,
     executeStepValidatorPath,
     executeStepValidatorModel,
+    executeStepValidatorReasoning,
     validateSchemaPath,
     thread,
   } = args;
@@ -143,6 +149,7 @@ async function runExecuteStepValidator(args: {
     validatorPath: executeStepValidatorPath,
     validateSchemaPath,
     model: executeStepValidatorModel,
+    reasoning: executeStepValidatorReasoning,
     workingDirectory,
     coreContext,
     onEvent: (text) => tui.logRight(text),
@@ -184,6 +191,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     stepText,
     mode,
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -194,6 +202,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     tracker,
     executeStepValidatorPath,
     executeStepValidatorModel,
+    executeStepValidatorReasoning,
     validateSchemaPath,
     thread,
   } = args;
@@ -208,6 +217,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     stepText,
     mode,
     model,
+    reasoning,
     workingDirectory,
     formatterPath,
     schemaPath,
@@ -230,6 +240,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     workingDirectory,
     executeStepValidatorPath,
     executeStepValidatorModel,
+    executeStepValidatorReasoning,
     validateSchemaPath,
     thread: execution.thread ?? null,
   });

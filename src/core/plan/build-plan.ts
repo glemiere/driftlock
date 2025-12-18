@@ -1,5 +1,6 @@
 import { readTextFile } from "../../utils/fs";
 import type { ThreadEvent } from "@openai/codex-sdk";
+import type { ReasoningEffort } from "../config-loader";
 import {
   combinePrompts,
   combineWithCoreContext,
@@ -7,6 +8,7 @@ import {
   extractAgentText,
   formatCodexError,
   formatEvent,
+  normalizeModelReasoningEffort,
   parseJsonSafe,
 } from "../utils/codex-utils";
 
@@ -16,6 +18,7 @@ export type BuildPlanOptions = {
   planFormatter: string;
   planSchema: unknown;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   coreContext?: string | null;
   onEvent?: (formatted: string, colorKey?: string) => void;
@@ -29,6 +32,7 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
     planFormatter,
     planSchema,
     model,
+    reasoning,
     workingDirectory,
     coreContext,
     onEvent,
@@ -36,10 +40,14 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
   } = options;
 
   const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter, coreContext);
-  onInfo?.(`[${auditorName}] generating plan with model: ${model}`);
+  onInfo?.(
+    `[${auditorName}] generating plan with model: ${model}${
+      reasoning ? ` (reasoning: ${reasoning})` : ""
+    }`
+  );
 
   try {
-    const thread = await startPlanThread(model, workingDirectory);
+    const thread = await startPlanThread(model, reasoning, workingDirectory);
     const { latestAgentMessage, finalLogged } = await streamPlanEvents(
       thread.runStreamed.bind(thread),
       combinedPrompt,
@@ -67,11 +75,16 @@ async function loadCombinedPrompt(
 
 type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStreamed;
 
-async function startPlanThread(model: string, workingDirectory: string) {
+async function startPlanThread(
+  model: string,
+  reasoning: ReasoningEffort | undefined,
+  workingDirectory: string
+) {
   const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>("@openai/codex-sdk");
   const codex = new Codex();
   return codex.startThread({
     model,
+    modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
     workingDirectory,
     skipGitRepoCheck: true,
   });

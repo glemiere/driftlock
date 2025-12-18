@@ -1,5 +1,13 @@
 import { readJsonFile, readTextFile } from "../../utils/fs";
-import { combineWithCoreContext, dynamicImport, extractAgentText, formatCodexError, formatEvent } from "../utils/codex-utils";
+import type { ReasoningEffort } from "../config-loader";
+import {
+  combineWithCoreContext,
+  dynamicImport,
+  extractAgentText,
+  formatCodexError,
+  formatEvent,
+  normalizeModelReasoningEffort,
+} from "../utils/codex-utils";
 
 export type ValidateStepOptions = {
   stepDescription: string;
@@ -8,6 +16,7 @@ export type ValidateStepOptions = {
   validatorPath: string;
   validateSchemaPath: string;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   coreContext?: string | null;
   onEvent?: (formatted: string, colorKey?: string) => void;
@@ -29,6 +38,7 @@ export async function validateStep(options: ValidateStepOptions): Promise<Valida
     validatorPath,
     validateSchemaPath,
     model,
+    reasoning,
     workingDirectory,
     coreContext,
     onEvent,
@@ -43,6 +53,7 @@ export async function validateStep(options: ValidateStepOptions): Promise<Valida
 
     const thread = codex.startThread({
       model,
+      modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
       skipGitRepoCheck: true,
     });

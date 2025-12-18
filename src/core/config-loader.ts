@@ -9,17 +9,22 @@ export type AuditorConfig = {
   path: string;
   validators: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
 
 export type ValidatorConfig = {
   path: string;
   model?: string;
+  reasoning?: ReasoningEffort;
 };
 
 export type FormatterConfig = {
   path: string;
   schema: string;
   model?: string;
+  fixRegressionModel?: string;
+  reasoning?: ReasoningEffort;
+  fixRegressionReasoning?: ReasoningEffort;
 };
 
 export type QualityGateStageConfig = {
@@ -52,7 +57,10 @@ export type DriftlockConfig = {
   pullRequest: PullRequestConfig;
   exclude: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
+
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 type AuditorConfigOverride = Partial<AuditorConfig>;
 
@@ -79,6 +87,7 @@ type DriftlockConfigOverrides = {
   maxThreadLifetimeAttempts?: number;
   exclude?: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
 
 type RawConfigObject = Record<string, unknown>;
@@ -142,6 +151,7 @@ function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, 
     const auditorPath = value.path;
     const validatorsField = value.validators;
     const model = value.model;
+    const reasoning = value.reasoning;
 
     if (typeof enabled !== "boolean") {
       throw new Error(
@@ -172,6 +182,7 @@ function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, 
       path: path.resolve(PACKAGE_ROOT, auditorPath),
       validators: [...validatorsField],
       model: typeof model === "string" ? model : undefined,
+      reasoning: typeof reasoning === "string" ? (reasoning as ReasoningEffort) : undefined,
     };
   }
 
@@ -191,6 +202,7 @@ function normalizeDefaultValidators(validatorsObj: RawConfigObject): Record<stri
     validators[name] = {
       path: path.resolve(PACKAGE_ROOT, value.path),
       model: typeof value.model === "string" ? value.model : undefined,
+      reasoning: typeof value.reasoning === "string" ? (value.reasoning as ReasoningEffort) : undefined,
     };
   }
 
@@ -220,6 +232,13 @@ function normalizeDefaultFormatterConfig(
     path: path.resolve(PACKAGE_ROOT, formatterPath),
     schema: path.resolve(PACKAGE_ROOT, schemaPath),
     model: typeof raw.model === "string" ? raw.model : undefined,
+    fixRegressionModel:
+      typeof raw.fixRegressionModel === "string" ? raw.fixRegressionModel : undefined,
+    reasoning: typeof raw.reasoning === "string" ? (raw.reasoning as ReasoningEffort) : undefined,
+    fixRegressionReasoning:
+      typeof raw.fixRegressionReasoning === "string"
+        ? (raw.fixRegressionReasoning as ReasoningEffort)
+        : undefined,
   };
 }
 
@@ -333,6 +352,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const qualityGate = normalizeDefaultQualityGate(root);
   const pullRequest = normalizeDefaultPullRequest(root);
   const model = typeof root.model === "string" ? root.model : undefined;
+  const reasoning = typeof root.reasoning === "string" ? (root.reasoning as ReasoningEffort) : undefined;
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -345,7 +365,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     runBaselineQualityGate:
       typeof root.runBaselineQualityGate === "boolean" ? root.runBaselineQualityGate : true,
     maxValidationRetries:
-      typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 3,
+      typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 1,
     maxRegressionAttempts:
       typeof root.maxRegressionAttempts === "number" ? root.maxRegressionAttempts : 3,
     maxThreadLifetimeAttempts:
@@ -356,6 +376,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     pullRequest,
     exclude,
     model,
+    reasoning,
   };
 }
 
@@ -420,6 +441,13 @@ function buildUserAuditorOverrides(
       auditorOverride.model = value.model as string | undefined;
     }
 
+    if ("reasoning" in value) {
+      if (value.reasoning !== undefined && typeof value.reasoning !== "string") {
+        throw new Error(`User config auditor "${name}.reasoning" must be a string.`);
+      }
+      auditorOverride.reasoning = value.reasoning as ReasoningEffort | undefined;
+    }
+
     overrides[name] = auditorOverride;
   }
 
@@ -454,6 +482,10 @@ function buildUserValidatorOverrides(
     overrides[name] = {
       path: path.resolve(cwd, value.path),
       model: typeof value.model === "string" ? value.model : undefined,
+      reasoning:
+        typeof value.reasoning === "string"
+          ? (value.reasoning as ReasoningEffort)
+          : undefined,
     };
   }
 
@@ -499,6 +531,33 @@ function buildUserFormatterOverrides(
         throw new Error(`User config formatter "${String(name)}.model" must be a string.`);
       }
       partial.model = raw.model as string | undefined;
+    }
+
+    if ("fixRegressionModel" in raw) {
+      if (raw.fixRegressionModel !== undefined && typeof raw.fixRegressionModel !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.fixRegressionModel" must be a string.`
+        );
+      }
+      partial.fixRegressionModel = raw.fixRegressionModel as string | undefined;
+    }
+
+    if ("reasoning" in raw) {
+      if (raw.reasoning !== undefined && typeof raw.reasoning !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.reasoning" must be a string.`
+        );
+      }
+      partial.reasoning = raw.reasoning as ReasoningEffort | undefined;
+    }
+
+    if ("fixRegressionReasoning" in raw) {
+      if (raw.fixRegressionReasoning !== undefined && typeof raw.fixRegressionReasoning !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.fixRegressionReasoning" must be a string.`
+        );
+      }
+      partial.fixRegressionReasoning = raw.fixRegressionReasoning as ReasoningEffort | undefined;
     }
 
     override[name] = partial;
@@ -559,6 +618,13 @@ function buildUserPullRequestOverrides(
       partial.model = formatterObj.model as string | undefined;
     }
 
+    if ("reasoning" in formatterObj) {
+      if (formatterObj.reasoning !== undefined && typeof formatterObj.reasoning !== "string") {
+        throw new Error('User config "pullRequest.formatter.reasoning" must be a string.');
+      }
+      partial.reasoning = formatterObj.reasoning as ReasoningEffort | undefined;
+    }
+
     override.formatter = partial;
   }
 
@@ -608,6 +674,13 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       throw new Error('User config "model" must be a string when provided.');
     }
     overrides.model = root.model;
+  }
+
+  if (root.reasoning !== undefined) {
+    if (typeof root.reasoning !== "string") {
+      throw new Error('User config "reasoning" must be a string when provided.');
+    }
+    overrides.reasoning = root.reasoning as ReasoningEffort;
   }
 
   if (root.runBaselineQualityGate !== undefined) {

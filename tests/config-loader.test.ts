@@ -25,6 +25,8 @@ describe("config-loader", () => {
     expect(config.auditors.security).toBeDefined();
     expect(config.auditors.security.enabled).toBe(true);
     expect(path.isAbsolute(config.auditors.security.path)).toBe(true);
+    expect(typeof config.model).toBe("string");
+    expect(typeof config.reasoning).toBe("string");
     expect(path.isAbsolute(config.validators.plan.path)).toBe(true);
     expect(path.isAbsolute(config.validators["execute-step"].path)).toBe(true);
     expect(path.isAbsolute(config.validators.step.path)).toBe(true);
@@ -32,6 +34,8 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.formatters.plan.schema)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.schema)).toBe(true);
+    expect(typeof config.formatters.executeStep.fixRegressionModel).toBe("string");
+    expect(typeof config.formatters.executeStep.fixRegressionReasoning).toBe("string");
     expect(path.isAbsolute(config.formatters.testFailureSummary.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.testFailureSummary.schema)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
@@ -44,26 +48,29 @@ describe("config-loader", () => {
     expect(typeof config.pullRequest.enabled).toBe("boolean");
     expect(path.isAbsolute(config.pullRequest.formatter.path)).toBe(true);
     expect(path.isAbsolute(config.pullRequest.formatter.schema)).toBe(true);
+    expect(typeof config.pullRequest.formatter.model).toBe("string");
+    expect(typeof config.pullRequest.formatter.reasoning).toBe("string");
     expect(typeof config.maxValidationRetries).toBe("number");
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
   });
 
-  it("supports model overrides for auditors, validators, and formatters", async () => {
+  it("supports model and reasoning overrides for auditors, validators, and formatters", async () => {
     await withTempDir(async (dir) => {
       const userConfig = {
         model: "default-model",
+        reasoning: "low",
         auditors: {
-          security: { model: "auditor-model" },
+          security: { model: "auditor-model", reasoning: "high" },
         },
         validators: {
-          plan: { path: "./validators/plan.md", model: "validator-model" },
+          plan: { path: "./validators/plan.md", model: "validator-model", reasoning: "medium" },
         },
         formatters: {
-          executeStep: { model: "formatter-model" },
+          executeStep: { model: "formatter-model", reasoning: "minimal" },
         },
         pullRequest: {
-          formatter: { model: "pr-model" },
+          formatter: { model: "pr-model", reasoning: "minimal" },
         },
       };
 
@@ -80,10 +87,15 @@ describe("config-loader", () => {
 
       const config = await loadConfig();
       expect(config.model).toBe("default-model");
+      expect(config.reasoning).toBe("low");
       expect(config.auditors.security.model).toBe("auditor-model");
+      expect(config.auditors.security.reasoning).toBe("high");
       expect(config.validators.plan.model).toBe("validator-model");
+      expect(config.validators.plan.reasoning).toBe("medium");
       expect(config.formatters.executeStep.model).toBe("formatter-model");
+      expect(config.formatters.executeStep.reasoning).toBe("minimal");
       expect(config.pullRequest.formatter.model).toBe("pr-model");
+      expect(config.pullRequest.formatter.reasoning).toBe("minimal");
     });
   });
 

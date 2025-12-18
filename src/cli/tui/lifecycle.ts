@@ -2,7 +2,7 @@ import { KEY } from "./constants";
 import { disableAltScreen, enableAltScreen, shouldUseTui } from "./screen";
 import { computeLayout, visibleRows } from "./layout";
 import { render, scheduleRender } from "./render";
-import { state, requestExit, clearExitRequest, toggleExitRequest } from "./state";
+import { state, requestExit, clearExitRequest } from "./state";
 import { initBorders, paintBorder, startRainbowBorder } from "./border";
 import type { Side } from "./types";
 
@@ -10,14 +10,14 @@ function handleKey(chunk: Buffer): void {
   if (handleMouse(chunk)) return;
   const key = chunk.toString();
   if (key === KEY.ctrlC) {
-    toggleExitRequest();
+    requestExit();
   } else if (key === KEY.ctrlQ) {
     // Hard exit on Ctrl+Q: immediately request exit and terminate the process.
     requestExit();
     shutdown();
     process.exit(0);
   } else if (key === KEY.quit) {
-    toggleExitRequest();
+    requestExit();
   }
 }
 
@@ -39,6 +39,7 @@ export function shutdown(): void {
   process.stdout.removeAllListeners("resize");
   process.stdin.setRawMode?.(false);
   process.stdin.removeAllListeners("data");
+  process.stdin.pause?.();
 }
 
 function handleMouse(chunk: Buffer): boolean {

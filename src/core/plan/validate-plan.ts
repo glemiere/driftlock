@@ -1,11 +1,13 @@
 import path from "path";
 import { readJsonFile, readTextFile } from "../../utils/fs";
 import { validateAgainstSchema } from "../../utils/schema-validator";
+import type { ReasoningEffort } from "../config-loader";
 import {
   dynamicImport,
   extractAgentText,
   formatCodexError,
   formatEvent,
+  normalizeModelReasoningEffort,
 } from "../utils/codex-utils";
 
 export type ValidatePlanOptions = {
@@ -16,6 +18,7 @@ export type ValidatePlanOptions = {
   planSchemaPath: string;
   validateSchemaPath: string;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   excludePaths?: string[];
   onEvent?: (formatted: string, colorKey?: string) => void;
@@ -36,6 +39,7 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
     planSchemaPath,
     validateSchemaPath,
     model,
+    reasoning,
     workingDirectory,
     excludePaths = [],
     onEvent,
@@ -77,6 +81,7 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
     validateSchemaPath,
     plan: parsed.value,
     model,
+    reasoning,
     workingDirectory,
     onEvent,
     onInfo,
@@ -113,6 +118,7 @@ type RunValidatorArgs = {
   validateSchemaPath: string;
   plan: unknown;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
   onEvent?: (formatted: string) => void;
   onInfo?: (message: string) => void;
@@ -126,6 +132,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
     validateSchemaPath,
     plan,
     model,
+    reasoning,
     workingDirectory,
     onEvent,
     onInfo,
@@ -139,6 +146,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
 
     const thread = codex.startThread({
       model,
+      modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
       skipGitRepoCheck: true,
     });

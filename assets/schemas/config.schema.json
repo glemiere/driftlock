@@ -9,6 +9,10 @@
       "type": "string",
       "description": "Global default model for Driftlock."
     },
+    "reasoning": {
+      "$ref": "#/$defs/reasoningEffort",
+      "description": "Global default reasoning effort for Driftlock."
+    },
     "$schema": {
       "type": "string",
       "description": "Optional JSON Schema reference for this config file."
@@ -36,6 +40,9 @@
           },
           "model": {
             "type": "string"
+          },
+          "reasoning": {
+            "$ref": "#/$defs/reasoningEffort"
           }
         },
         "required": ["path"],
@@ -77,7 +84,7 @@
     "maxValidationRetries": {
       "type": "integer",
       "minimum": 0,
-      "description": "Maximum number of attempts allowed in the build/lint/test validation loop per step."
+      "description": "Number of consecutive successful quality gate passes required per step (set to 2 for back-to-back green); on the first failure Driftlock enters regression immediately."
     },
     "maxRegressionAttempts": {
       "type": "integer",
@@ -107,6 +114,11 @@
   },
   "required": ["auditors", "validators", "formatters"],
   "$defs": {
+    "reasoningEffort": {
+      "type": "string",
+      "description": "Hint passed to Codex as model_reasoning_effort (some models may reject certain values; Driftlock will coerce unsupported combinations when needed).",
+      "enum": ["minimal", "low", "medium", "high"]
+    },
     "auditorConfig": {
       "type": "object",
       "description": "Configuration for a single auditor.",
@@ -131,6 +143,10 @@
         "model": {
           "type": "string",
           "description": "Optional model override for this auditor."
+        },
+        "reasoning": {
+          "$ref": "#/$defs/reasoningEffort",
+          "description": "Optional reasoning effort override for this auditor."
         }
       },
       "required": ["enabled", "path", "validators"]
@@ -151,6 +167,18 @@
         "model": {
           "type": "string",
           "description": "Optional model override for this formatter-driven stage."
+        },
+        "fixRegressionModel": {
+          "type": "string",
+          "description": "Optional model override used only for the executor in fix_regression mode (when applicable)."
+        },
+        "reasoning": {
+          "$ref": "#/$defs/reasoningEffort",
+          "description": "Optional reasoning effort override for this formatter-driven stage."
+        },
+        "fixRegressionReasoning": {
+          "$ref": "#/$defs/reasoningEffort",
+          "description": "Optional reasoning effort override used only for the executor in fix_regression mode (when applicable)."
         }
       },
       "required": ["path", "schema"]

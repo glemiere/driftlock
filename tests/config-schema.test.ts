@@ -184,6 +184,55 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
+  it("rejects fixRegressionModel when not string", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: {
+        ...minimalFormatters,
+        executeStep: {
+          ...minimalFormatters.executeStep,
+          fixRegressionModel: 123,
+        },
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/expected string/i);
+  });
+
+  it("rejects invalid reasoning values", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: minimalFormatters,
+      reasoning: "turbo",
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/must be one of/i);
+  });
+
+  it("rejects fixRegressionReasoning when invalid", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: {
+        ...minimalFormatters,
+        executeStep: {
+          ...minimalFormatters.executeStep,
+          fixRegressionReasoning: "turbo",
+        },
+      },
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/fixRegressionReasoning/i);
+  });
+
   it("allows partial user config when allowPartial is true", () => {
     const partial = {
       auditors: {

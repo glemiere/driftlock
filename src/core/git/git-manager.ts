@@ -19,7 +19,7 @@ function makeBranchName(): string {
 }
 
 async function getCurrentBranch(cwd: string): Promise<string | null> {
-  const result = await runCommand("git rev-parse --abbrev-ref HEAD", cwd, { allowNonZeroExit: true });
+  const result = await runCommand("git rev-parse --abbrev-ref HEAD", cwd);
   return result.ok ? result.stdout.trim() : null;
 }
 
@@ -34,7 +34,7 @@ export async function ensureDriftlockBranch(cwd: string): Promise<GitContext> {
   }
 
   const newBranch = makeBranchName();
-  const checkout = await runCommand(`git checkout -b ${newBranch}`, cwd, { allowNonZeroExit: true });
+  const checkout = await runCommand(`git checkout -b ${newBranch}`, cwd);
   if (!checkout.ok) {
     tui.logLeft(`Failed to create branch ${newBranch}; continuing on ${current}.`, "warn");
     return ctx;
@@ -46,16 +46,32 @@ export async function ensureDriftlockBranch(cwd: string): Promise<GitContext> {
   return ctx;
 }
 
+export async function assertCleanWorkingTree(cwd: string): Promise<void> {
+  const status = await runCommand("git status --porcelain", cwd);
+  if (!status.ok) {
+    const reason = status.stderr || status.stdout || `exit code ${status.code}`;
+    throw new Error(`Could not check git status: ${reason}`);
+  }
+
+  const dirty = status.stdout.trim();
+  if (!dirty) return;
+
+  const preview = dirty.split(/\r?\n/).slice(0, 20).join("\n");
+  throw new Error(
+    `Working tree is not clean. Commit/stash your changes (and ignore generated files) before running Driftlock.\n\n${preview}`
+  );
+}
+
 export async function restoreBranch(ctx: GitContext, cwd: string): Promise<void> {
   if (ctx.didCreateBranch && ctx.originalBranch) {
-    await runCommand(`git checkout ${ctx.originalBranch}`, cwd, { allowNonZeroExit: true });
+    await runCommand(`git checkout ${ctx.originalBranch}`, cwd);
     tui.logLeft(`Restored branch: ${ctx.originalBranch}`, "success");
   }
 }
 
 export async function pushBranch(ctx: GitContext, cwd: string): Promise<boolean> {
   if (!ctx.branch) return false;
-  const push = await runCommand(`git push -u origin ${ctx.branch}`, cwd, { allowNonZeroExit: true });
+  const push = await runCommand(`git push -u origin ${ctx.branch}`, cwd);
   if (!push.ok) {
     tui.logLeft(`Failed to push branch ${ctx.branch}: ${push.stderr || push.stdout}`, "warn");
     return false;
@@ -89,6 +105,12 @@ export async function openPullRequest(
   if (!ctx.branch) return;
 
   const base = options.baseBranch ?? ctx.originalBranch;
+  const existingUrl = await tryGetExistingPullRequestUrl(ctx.branch, base, cwd);
+  if (existingUrl) {
+    tui.logLeft(`PR already exists for branch ${ctx.branch}: ${existingUrl}`, "success");
+    return;
+  }
+
   const hasCustomTitleAndBody =
     typeof options.title === "string" &&
     options.title.trim().length > 0 &&
@@ -112,14 +134,20 @@ export async function openPullRequest(
           .filter(Boolean)
           .join(" ");
 
-        const pr = await runCommand(cmd, cwd, { allowNonZeroExit: true });
+        const pr = await runCommand(cmd, cwd);
         if (pr.ok) {
-          tui.logLeft(`Opened PR for branch ${ctx.branch}.`, "success");
+          const url = pr.stdout.trim();
+          tui.logLeft(
+            `Opened PR for branch ${ctx.branch}${url ? `: ${url}` : "."}`,
+            "success"
+          );
           return;
         }
 
         tui.logLeft(
-          `Could not open PR automatically with custom title/body; falling back to --fill.`,
+          `Could not open PR automatically with custom title/body (exit ${pr.code}): ${
+            pr.stderr || pr.stdout || "unknown error"
+          }`,
           "warn"
         );
       } catch (error) {
@@ -142,18 +170,53 @@ export async function openPullRequest(
     .filter(Boolean)
     .join(" ");
 
-  const pr = await runCommand(cmd, cwd, { allowNonZeroExit: true });
+  const pr = await runCommand(cmd, cwd);
   if (pr.ok) {
-    tui.logLeft(`Opened PR for branch ${ctx.branch}.`, "success");
+    const url = pr.stdout.trim();
+    tui.logLeft(`Opened PR for branch ${ctx.branch}${url ? `: ${url}` : "."}`, "success");
+    return;
+  }
+
+  const fallbackExistingUrl = await tryGetExistingPullRequestUrl(ctx.branch, base, cwd);
+  if (fallbackExistingUrl) {
+    tui.logLeft(`PR already exists for branch ${ctx.branch}: ${fallbackExistingUrl}`, "success");
     return;
   }
 
   tui.logLeft(
-    `Could not open PR automatically. Run: git push -u origin ${ctx.branch} && gh pr create --fill --head ${ctx.branch}`,
+    `Could not open PR automatically (exit ${pr.code}). stderr: ${pr.stderr || "<empty>"}`,
     "warn"
   );
 }
 
 function quotePosix(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+async function tryGetExistingPullRequestUrl(
+  branch: string,
+  baseBranch: string | undefined,
+  cwd: string
+): Promise<string | null> {
+  const cmd = [
+    "gh pr list",
+    `--head ${quoteShell(branch)}`,
+    baseBranch ? `--base ${quoteShell(baseBranch)}` : "",
+    "--state open",
+    "--json url",
+    `--jq ${quoteShell(".[0].url // empty")}`,
+  ].join(" ");
+
+  const view = await runCommand(cmd, cwd);
+  if (!view.ok) return null;
+  const url = view.stdout.trim();
+  if (!url || url === "null") return null;
+  return url;
+}
+
+function quoteShell(value: string): string {
+  if (process.platform === "win32") {
+    return `"${value.replace(/"/g, '\\"')}"`;
+  }
+  return quotePosix(value);
 }

@@ -20,3 +20,17 @@ export async function rollbackPatches(
     }
   }
 }
+
+export async function rollbackWorkingTree(cwd: string): Promise<void> {
+  const reset = await runCommand("git reset --hard", cwd);
+  if (!reset.ok) {
+    const reason = reset.stderr || reset.stdout || `exit code ${reset.code}`;
+    throw new Error(`Failed to reset working tree: ${reason}`);
+  }
+
+  const clean = await runCommand("git clean -fd", cwd);
+  if (!clean.ok) {
+    const reason = clean.stderr || clean.stdout || `exit code ${clean.code}`;
+    throw new Error(`Failed to clean working tree: ${reason}`);
+  }
+}

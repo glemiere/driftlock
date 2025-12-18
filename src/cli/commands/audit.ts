@@ -1,9 +1,17 @@
 import { loadConfig } from "../../core/config-loader";
 import { runAuditLoop } from "../../core/orchestrator";
 import { tui } from "../tui";
-import { ensureDriftlockBranch, restoreBranch, openPullRequest } from "../../core/git/git-manager";
+import {
+  assertCleanWorkingTree,
+  ensureDriftlockBranch,
+  restoreBranch,
+  openPullRequest,
+} from "../../core/git/git-manager";
 import { summarizePullRequest } from "../../core/git/pull-request-summary";
-import { resolvePullRequestModel } from "../../core/utils/model-resolver";
+import {
+  resolvePullRequestModel,
+  resolvePullRequestReasoning,
+} from "../../core/utils/model-resolver";
 
 export async function runAuditCommand(
   auditorsArg?: string,
@@ -41,6 +49,7 @@ export async function runAuditCommand(
 
   const cwd = process.cwd();
   const gitContext = await ensureDriftlockBranch(cwd);
+  await assertCleanWorkingTree(cwd);
 
   const headerInfo = `auditors: ${auditors.join(", ")}`;
   tui.setHeaderInfo(headerInfo);
@@ -51,6 +60,7 @@ export async function runAuditCommand(
     if (gitContext.branch && config.pullRequest.enabled && outcome.committedPlans.length > 0) {
       const prSummary = await summarizePullRequest({
         model: resolvePullRequestModel(config),
+        reasoning: resolvePullRequestReasoning(config),
         workingDirectory: cwd,
         formatterPath: config.pullRequest.formatter.path,
         schemaPath: config.pullRequest.formatter.schema,

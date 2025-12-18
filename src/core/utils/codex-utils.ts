@@ -10,6 +10,7 @@ import type {
   TodoListItem,
   WebSearchItem,
 } from "@openai/codex-sdk";
+import type { ReasoningEffort } from "../config-loader";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
@@ -26,6 +27,20 @@ const COLOR = {
 export function combinePrompts(auditorPrompt: string, formatter: string): string {
   const parts = [auditorPrompt.trim(), formatter.trim()].filter(Boolean);
   return parts.join("\n\n");
+}
+
+export function normalizeModelReasoningEffort(
+  model: string,
+  reasoning?: ReasoningEffort
+): ReasoningEffort | undefined {
+  if (!reasoning) return undefined;
+
+  // Some models reject certain effort values (e.g., codex-mini rejects "minimal").
+  if (reasoning === "minimal" && model.toLowerCase().includes("mini")) {
+    return "low";
+  }
+
+  return reasoning;
 }
 
 export function combineWithCoreContext(core: string | null | undefined, prompt: string): string {

@@ -14,7 +14,6 @@ type RunCommandOptions = {
   onStdout?: (chunk: string) => void;
   onStderr?: (chunk: string) => void;
   input?: string;
-  allowNonZeroExit?: boolean;
 };
 
 async function runSingleCommand(
@@ -63,7 +62,7 @@ async function runSingleCommand(
     child.on("close", (code) => {
       const exitCode = typeof code === "number" ? code : 1;
       resolve({
-        ok: options.allowNonZeroExit ? true : exitCode === 0,
+        ok: exitCode === 0,
         stdout,
         stderr,
         code: exitCode,
