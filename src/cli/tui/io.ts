@@ -1,8 +1,18 @@
+import { spinner as startSpinner } from "./spinners";
+import type { SpinnerHandle } from "./spinners";
 import { COLORS, MAX_BUFFER, RESET, tokenPattern } from "./constants";
 import { computeLayout, visibleRows, clampOffsets } from "./layout";
 import { scheduleRender } from "./render";
 import { state } from "./state";
 import { wrapLine } from "./text";
+
+export type LogHandle = {
+  withSpinner: (name?: Parameters<typeof startSpinner>[0]) => SpinnerHandle;
+};
+
+function formatTimestamp(): string {
+  return new Date().toISOString().slice(11, 19); // HH:MM:SS
+}
 
 function trimBuffer(side: "left" | "right"): void {
   const buf = side === "left" ? state.left : state.right;
@@ -90,8 +100,12 @@ function push(side: "left" | "right", message: string, colorKey?: keyof typeof C
   }
 }
 
-export function logLeft(message: string, colorKey?: keyof typeof COLORS): void {
-  push("left", message, colorKey);
+export function logLeft(message: string, colorKey?: keyof typeof COLORS): LogHandle {
+  const stamped = `[${formatTimestamp()}] ${message}`;
+  const startIndex = state.left.length;
+  push("left", stamped, colorKey);
+  const lineCount = state.left.length - startIndex;
+  return createLogHandle(stamped, colorKey, startIndex, lineCount);
 }
 
 export function logRight(message: string, colorKey?: keyof typeof COLORS): void {
@@ -109,4 +123,79 @@ export function updateLeft(message: string): void {
   const wrapped = wrapLine(message, width, tokenPattern);
   state.left.splice(state.left.length - 1, 1, ...wrapped);
   scheduleRender();
+}
+
+function createLogHandle(
+  message: string,
+  colorKey: keyof typeof COLORS | undefined,
+  startIndex: number,
+  lineCount: number
+): LogHandle {
+  return {
+    withSpinner: (name) => createSpinnerHandle(message, colorKey, startIndex, lineCount, name),
+  };
+}
+
+function createSpinnerHandle(
+  message: string,
+  colorKey: keyof typeof COLORS | undefined,
+  startIndex: number,
+  lineCount: number,
+  name?: Parameters<typeof startSpinner>[0]
+): SpinnerHandle {
+  const colorize = (line: string, override?: keyof typeof COLORS): string => {
+    const key = override ?? colorKey;
+    return key && COLORS[key] ? `${COLORS[key]}${line}${RESET}` : line;
+  };
+
+  const resolveMessage = (override?: string): string => override || message;
+
+  let trackedStart = startIndex;
+  let trackedCount = lineCount;
+
+  const replaceLine = (line: string, { mirror }: { mirror: boolean }): void => {
+    if (state.left.length === 0) return;
+    if (trackedStart < 0) trackedStart = 0;
+    if (trackedStart >= state.left.length) trackedStart = state.left.length - 1;
+    if (trackedCount <= 0) trackedCount = 1;
+    const available = state.left.length - trackedStart;
+    if (trackedCount > available) trackedCount = available;
+    const width = state.leftWidth;
+    const wrapped = wrapLine(line, width, tokenPattern);
+    state.left.splice(trackedStart, trackedCount, ...wrapped);
+    if (mirror) {
+      state.leftMirror.splice(trackedStart, trackedCount, ...wrapped);
+    }
+    trackedCount = wrapped.length;
+    scheduleRender();
+  };
+
+  const spin = startSpinner(name ?? "dots", {
+    text: message,
+    stream: undefined, // render via TUI only
+    onFrame: (line) => replaceLine(colorize(line), { mirror: false }),
+  });
+
+  const stopAndLog = (emoji: string, override?: string, colorOverride?: keyof typeof COLORS) => {
+    spin.stop();
+    const line = `${emoji} ${resolveMessage(override)}`;
+    replaceLine(colorize(line, colorOverride), { mirror: true });
+  };
+
+  return {
+    stop: () => {
+      spin.stop();
+      replaceLine(colorize(`✓ ${message}`), { mirror: true });
+    },
+    success: (msg?: string) => {
+      spin.stop();
+      replaceLine(colorize(`✓ ${message}`), { mirror: true });
+      push("left", `✓ ${resolveMessage(msg)}`, "success");
+    },
+    failure: (msg?: string) => {
+      spin.stop();
+      replaceLine(colorize(`✗ ${message}`), { mirror: true });
+      push("left", `✗ ${resolveMessage(msg)}`, "error");
+    },
+  };
 }

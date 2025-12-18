@@ -9,37 +9,85 @@ export type AuditorConfig = {
   path: string;
   validators: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
 
 export type ValidatorConfig = {
   path: string;
   model?: string;
+  reasoning?: ReasoningEffort;
+};
+
+export type FormatterConfig = {
+  path: string;
+  schema: string;
+  model?: string;
+  fixRegressionModel?: string;
+  reasoning?: ReasoningEffort;
+  fixRegressionReasoning?: ReasoningEffort;
+};
+
+export type QualityGateStageConfig = {
+  enabled: boolean;
+  run: string;
+};
+
+export type PullRequestConfig = {
+  enabled: boolean;
+  formatter: FormatterConfig;
 };
 
 export type DriftlockConfig = {
   auditors: Record<string, AuditorConfig>;
   validators: Record<string, ValidatorConfig>;
   formatters: {
-    plan: string;
-    schema: string;
-    model?: string;
+    plan: FormatterConfig;
+    executeStep: FormatterConfig;
+    testFailureSummary: FormatterConfig;
   };
+  qualityGate: {
+    build: QualityGateStageConfig;
+    lint: QualityGateStageConfig;
+    test: QualityGateStageConfig;
+  };
+  runBaselineQualityGate: boolean;
+  maxValidationRetries: number;
+  maxRegressionAttempts: number;
+  maxThreadLifetimeAttempts: number;
+  pullRequest: PullRequestConfig;
   exclude: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
+
+export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 type AuditorConfigOverride = Partial<AuditorConfig>;
 
 type DriftlockConfigOverrides = {
   auditors?: Record<string, AuditorConfigOverride>;
   validators?: Record<string, ValidatorConfig>;
+  qualityGate?: Partial<{
+    build: Partial<QualityGateStageConfig>;
+    lint: Partial<QualityGateStageConfig>;
+    test: Partial<QualityGateStageConfig>;
+  }>;
   formatters?: {
-    plan?: string;
-    schema?: string;
-    model?: string;
+    plan?: Partial<FormatterConfig>;
+    executeStep?: Partial<FormatterConfig>;
+    testFailureSummary?: Partial<FormatterConfig>;
   };
+  pullRequest?: {
+    enabled?: boolean;
+    formatter?: Partial<FormatterConfig>;
+  };
+  runBaselineQualityGate?: boolean;
+  maxValidationRetries?: number;
+  maxRegressionAttempts?: number;
+  maxThreadLifetimeAttempts?: number;
   exclude?: string[];
   model?: string;
+  reasoning?: ReasoningEffort;
 };
 
 type RawConfigObject = Record<string, unknown>;
@@ -102,6 +150,8 @@ function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, 
     const enabled = value.enabled;
     const auditorPath = value.path;
     const validatorsField = value.validators;
+    const model = value.model;
+    const reasoning = value.reasoning;
 
     if (typeof enabled !== "boolean") {
       throw new Error(
@@ -131,6 +181,8 @@ function normalizeDefaultAuditors(auditorsObj: RawConfigObject): Record<string, 
       enabled,
       path: path.resolve(PACKAGE_ROOT, auditorPath),
       validators: [...validatorsField],
+      model: typeof model === "string" ? model : undefined,
+      reasoning: typeof reasoning === "string" ? (reasoning as ReasoningEffort) : undefined,
     };
   }
 
@@ -150,28 +202,88 @@ function normalizeDefaultValidators(validatorsObj: RawConfigObject): Record<stri
     validators[name] = {
       path: path.resolve(PACKAGE_ROOT, value.path),
       model: typeof value.model === "string" ? value.model : undefined,
+      reasoning: typeof value.reasoning === "string" ? (value.reasoning as ReasoningEffort) : undefined,
     };
   }
 
   return validators;
 }
 
-function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockConfig["formatters"] {
-  const planPath = formattersObj.plan;
-  const schemaPath = formattersObj.schema;
+function normalizeDefaultFormatterConfig(
+  name: string,
+  raw: unknown
+): FormatterConfig {
+  if (!isPlainObject(raw)) {
+    throw new Error(`Default config formatter "${name}" must be an object.`);
+  }
 
-  if (typeof planPath !== "string") {
-    throw new Error('Default config "formatters.plan" must be a string path.');
+  const formatterPath = raw.path;
+  const schemaPath = raw.schema;
+
+  if (typeof formatterPath !== "string") {
+    throw new Error(`Default config formatter "${name}.path" must be a string.`);
   }
 
   if (typeof schemaPath !== "string") {
-    throw new Error('Default config "formatters.schema" must be a string path.');
+    throw new Error(`Default config formatter "${name}.schema" must be a string.`);
   }
 
   return {
-    plan: path.resolve(PACKAGE_ROOT, planPath),
+    path: path.resolve(PACKAGE_ROOT, formatterPath),
     schema: path.resolve(PACKAGE_ROOT, schemaPath),
+    model: typeof raw.model === "string" ? raw.model : undefined,
+    fixRegressionModel:
+      typeof raw.fixRegressionModel === "string" ? raw.fixRegressionModel : undefined,
+    reasoning: typeof raw.reasoning === "string" ? (raw.reasoning as ReasoningEffort) : undefined,
+    fixRegressionReasoning:
+      typeof raw.fixRegressionReasoning === "string"
+        ? (raw.fixRegressionReasoning as ReasoningEffort)
+        : undefined,
   };
+}
+
+function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockConfig["formatters"] {
+  return {
+    plan: normalizeDefaultFormatterConfig("plan", formattersObj.plan),
+    executeStep: normalizeDefaultFormatterConfig("executeStep", formattersObj.executeStep),
+    testFailureSummary: normalizeDefaultFormatterConfig(
+      "testFailureSummary",
+      formattersObj.testFailureSummary
+    ),
+  };
+}
+
+function normalizeDefaultPullRequest(root: RawConfigObject): PullRequestConfig {
+  const raw = root.pullRequest;
+  if (raw === undefined) {
+    return {
+      enabled: false,
+      formatter: {
+        path: path.resolve(PACKAGE_ROOT, "assets", "formatters", "pull-request.md"),
+        schema: path.resolve(PACKAGE_ROOT, "assets", "schemas", "pull-request.schema.json"),
+      },
+    };
+  }
+
+  if (!isPlainObject(raw)) {
+    throw new Error('Default config "pullRequest" must be an object when provided.');
+  }
+
+  const enabled = raw.enabled;
+  if (typeof enabled !== "boolean") {
+    throw new Error('Default config "pullRequest.enabled" must be a boolean.');
+  }
+
+  if (!("formatter" in raw)) {
+    throw new Error('Default config "pullRequest.formatter" is required.');
+  }
+
+  const formatter = normalizeDefaultFormatterConfig(
+    "pullRequest",
+    (raw as RawConfigObject).formatter
+  );
+
+  return { enabled, formatter };
 }
 
 function normalizeDefaultExclude(root: RawConfigObject): string[] {
@@ -184,6 +296,41 @@ function normalizeDefaultExclude(root: RawConfigObject): string[] {
   }
 
   return root.exclude.map((item) => path.resolve(PACKAGE_ROOT, item));
+}
+
+function normalizeDefaultQualityGate(root: RawConfigObject): DriftlockConfig["qualityGate"] {
+  const rawGate = root.qualityGate;
+  if (!isPlainObject(rawGate)) {
+    throw new Error('Default config "qualityGate" must be an object.');
+  }
+
+  const gateObj = rawGate as RawConfigObject;
+
+  const normalizeStage = (name: "build" | "lint" | "test"): QualityGateStageConfig => {
+    const rawStage = gateObj[name];
+    if (!isPlainObject(rawStage)) {
+      throw new Error(`Default config "qualityGate.${name}" must be an object.`);
+    }
+
+    const enabled = rawStage.enabled;
+    const run = rawStage.run;
+
+    if (typeof enabled !== "boolean") {
+      throw new Error(`Default config "qualityGate.${name}.enabled" must be a boolean.`);
+    }
+
+    if (typeof run !== "string") {
+      throw new Error(`Default config "qualityGate.${name}.run" must be a string.`);
+    }
+
+    return { enabled, run };
+  };
+
+  return {
+    build: normalizeStage("build"),
+    lint: normalizeStage("lint"),
+    test: normalizeStage("test"),
+  };
 }
 
 function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
@@ -202,7 +349,10 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const validatorsObj = getSectionObject(root, "validators", "Default");
   const formattersObj = getSectionObject(root, "formatters", "Default");
   const exclude = normalizeDefaultExclude(root);
+  const qualityGate = normalizeDefaultQualityGate(root);
+  const pullRequest = normalizeDefaultPullRequest(root);
   const model = typeof root.model === "string" ? root.model : undefined;
+  const reasoning = typeof root.reasoning === "string" ? (root.reasoning as ReasoningEffort) : undefined;
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -211,9 +361,22 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   return {
     auditors,
     validators,
+    qualityGate,
+    runBaselineQualityGate:
+      typeof root.runBaselineQualityGate === "boolean" ? root.runBaselineQualityGate : true,
+    maxValidationRetries:
+      typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 1,
+    maxRegressionAttempts:
+      typeof root.maxRegressionAttempts === "number" ? root.maxRegressionAttempts : 3,
+    maxThreadLifetimeAttempts:
+      typeof root.maxThreadLifetimeAttempts === "number"
+        ? root.maxThreadLifetimeAttempts
+        : 5,
     formatters,
+    pullRequest,
     exclude,
     model,
+    reasoning,
   };
 }
 
@@ -271,6 +434,20 @@ function buildUserAuditorOverrides(
       auditorOverride.validators = [...value.validators];
     }
 
+    if ("model" in value) {
+      if (value.model !== undefined && typeof value.model !== "string") {
+        throw new Error(`User config auditor "${name}.model" must be a string.`);
+      }
+      auditorOverride.model = value.model as string | undefined;
+    }
+
+    if ("reasoning" in value) {
+      if (value.reasoning !== undefined && typeof value.reasoning !== "string") {
+        throw new Error(`User config auditor "${name}.reasoning" must be a string.`);
+      }
+      auditorOverride.reasoning = value.reasoning as ReasoningEffort | undefined;
+    }
+
     overrides[name] = auditorOverride;
   }
 
@@ -305,6 +482,10 @@ function buildUserValidatorOverrides(
     overrides[name] = {
       path: path.resolve(cwd, value.path),
       model: typeof value.model === "string" ? value.model : undefined,
+      reasoning:
+        typeof value.reasoning === "string"
+          ? (value.reasoning as ReasoningEffort)
+          : undefined,
     };
   }
 
@@ -320,29 +501,134 @@ function buildUserFormatterOverrides(
   }
 
   const formattersObj = formattersRaw as RawConfigObject;
-  const formattersOverride: DriftlockConfigOverrides["formatters"] = {};
+  const override: DriftlockConfigOverrides["formatters"] = {};
 
-  if ("plan" in formattersObj) {
-    if (typeof formattersObj.plan !== "string") {
-      throw new Error(
-        'User config "formatters.plan" must be a string path when provided.'
-      );
+  const normalize = (name: keyof DriftlockConfig["formatters"]) => {
+    if (!(name in formattersObj)) return;
+    const raw = formattersObj[name];
+    if (!isPlainObject(raw)) {
+      throw new Error(`User config formatter "${String(name)}" must be an object.`);
     }
 
-    formattersOverride.plan = path.resolve(cwd, formattersObj.plan);
-  }
+    const partial: Partial<FormatterConfig> = {};
 
-  if ("schema" in formattersObj) {
-    if (typeof formattersObj.schema !== "string") {
-      throw new Error(
-        'User config "formatters.schema" must be a string path when provided.'
-      );
+    if ("path" in raw) {
+      if (typeof raw.path !== "string") {
+        throw new Error(`User config formatter "${String(name)}.path" must be a string.`);
+      }
+      partial.path = path.resolve(cwd, raw.path);
     }
 
-    formattersOverride.schema = path.resolve(cwd, formattersObj.schema);
+    if ("schema" in raw) {
+      if (typeof raw.schema !== "string") {
+        throw new Error(`User config formatter "${String(name)}.schema" must be a string.`);
+      }
+      partial.schema = path.resolve(cwd, raw.schema);
+    }
+
+    if ("model" in raw) {
+      if (raw.model !== undefined && typeof raw.model !== "string") {
+        throw new Error(`User config formatter "${String(name)}.model" must be a string.`);
+      }
+      partial.model = raw.model as string | undefined;
+    }
+
+    if ("fixRegressionModel" in raw) {
+      if (raw.fixRegressionModel !== undefined && typeof raw.fixRegressionModel !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.fixRegressionModel" must be a string.`
+        );
+      }
+      partial.fixRegressionModel = raw.fixRegressionModel as string | undefined;
+    }
+
+    if ("reasoning" in raw) {
+      if (raw.reasoning !== undefined && typeof raw.reasoning !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.reasoning" must be a string.`
+        );
+      }
+      partial.reasoning = raw.reasoning as ReasoningEffort | undefined;
+    }
+
+    if ("fixRegressionReasoning" in raw) {
+      if (raw.fixRegressionReasoning !== undefined && typeof raw.fixRegressionReasoning !== "string") {
+        throw new Error(
+          `User config formatter "${String(name)}.fixRegressionReasoning" must be a string.`
+        );
+      }
+      partial.fixRegressionReasoning = raw.fixRegressionReasoning as ReasoningEffort | undefined;
+    }
+
+    override[name] = partial;
+  };
+
+  normalize("plan");
+  normalize("executeStep");
+  normalize("testFailureSummary");
+
+  return override;
+}
+
+function buildUserPullRequestOverrides(
+  raw: unknown,
+  cwd: string
+): DriftlockConfigOverrides["pullRequest"] {
+  if (!isPlainObject(raw)) {
+    throw new Error('User config "pullRequest" must be an object when provided.');
   }
 
-  return formattersOverride;
+  const prObj = raw as RawConfigObject;
+  const override: NonNullable<DriftlockConfigOverrides["pullRequest"]> = {};
+
+  if ("enabled" in prObj) {
+    if (typeof prObj.enabled !== "boolean") {
+      throw new Error('User config "pullRequest.enabled" must be a boolean.');
+    }
+    override.enabled = prObj.enabled;
+  }
+
+  if ("formatter" in prObj) {
+    const formatterRaw = prObj.formatter;
+    if (!isPlainObject(formatterRaw)) {
+      throw new Error('User config "pullRequest.formatter" must be an object.');
+    }
+
+    const formatterObj = formatterRaw as RawConfigObject;
+    const partial: Partial<FormatterConfig> = {};
+
+    if ("path" in formatterObj) {
+      if (typeof formatterObj.path !== "string") {
+        throw new Error('User config "pullRequest.formatter.path" must be a string.');
+      }
+      partial.path = path.resolve(cwd, formatterObj.path);
+    }
+
+    if ("schema" in formatterObj) {
+      if (typeof formatterObj.schema !== "string") {
+        throw new Error('User config "pullRequest.formatter.schema" must be a string.');
+      }
+      partial.schema = path.resolve(cwd, formatterObj.schema);
+    }
+
+    if ("model" in formatterObj) {
+      if (formatterObj.model !== undefined && typeof formatterObj.model !== "string") {
+        throw new Error('User config "pullRequest.formatter.model" must be a string.');
+      }
+      partial.model = formatterObj.model as string | undefined;
+    }
+
+    if ("reasoning" in formatterObj) {
+      if (formatterObj.reasoning !== undefined && typeof formatterObj.reasoning !== "string") {
+        throw new Error('User config "pullRequest.formatter.reasoning" must be a string.');
+      }
+      partial.reasoning = formatterObj.reasoning as ReasoningEffort | undefined;
+    }
+
+    override.formatter = partial;
+  }
+
+  return override;
 }
 
 function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverrides {
@@ -368,7 +654,11 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
   }
 
   if (root.formatters !== undefined) {
-    throw new Error("User config may not override formatters; this is configured by default only.");
+    overrides.formatters = buildUserFormatterOverrides(root.formatters, cwd);
+  }
+
+  if (root.pullRequest !== undefined) {
+    overrides.pullRequest = buildUserPullRequestOverrides(root.pullRequest, cwd);
   }
 
   if (root.exclude !== undefined) {
@@ -384,6 +674,91 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       throw new Error('User config "model" must be a string when provided.');
     }
     overrides.model = root.model;
+  }
+
+  if (root.reasoning !== undefined) {
+    if (typeof root.reasoning !== "string") {
+      throw new Error('User config "reasoning" must be a string when provided.');
+    }
+    overrides.reasoning = root.reasoning as ReasoningEffort;
+  }
+
+  if (root.runBaselineQualityGate !== undefined) {
+    if (typeof root.runBaselineQualityGate !== "boolean") {
+      throw new Error(
+        'User config "runBaselineQualityGate" must be a boolean when provided.'
+      );
+    }
+    overrides.runBaselineQualityGate = root.runBaselineQualityGate;
+  }
+
+  if (root.qualityGate !== undefined) {
+    if (!isPlainObject(root.qualityGate)) {
+      throw new Error('User config "qualityGate" must be an object when provided.');
+    }
+
+    const gateRoot = root.qualityGate as RawConfigObject;
+    const gateOverride: NonNullable<DriftlockConfigOverrides["qualityGate"]> = {};
+
+    const normalizeStage = (name: "build" | "lint" | "test") => {
+      if (!(name in gateRoot)) return;
+      const rawStage = gateRoot[name];
+      if (!isPlainObject(rawStage)) {
+        throw new Error(`User config "qualityGate.${name}" must be an object.`);
+      }
+
+      const stageObj = rawStage as RawConfigObject;
+      const stageOverride: Partial<QualityGateStageConfig> = {};
+
+      if ("enabled" in stageObj) {
+        if (typeof stageObj.enabled !== "boolean") {
+          throw new Error(`User config "qualityGate.${name}.enabled" must be a boolean.`);
+        }
+        stageOverride.enabled = stageObj.enabled;
+      }
+
+      if ("run" in stageObj) {
+        if (typeof stageObj.run !== "string") {
+          throw new Error(`User config "qualityGate.${name}.run" must be a string.`);
+        }
+        stageOverride.run = stageObj.run;
+      }
+
+      gateOverride[name] = stageOverride;
+    };
+
+    normalizeStage("build");
+    normalizeStage("lint");
+    normalizeStage("test");
+
+    overrides.qualityGate = gateOverride;
+  }
+
+  if (root.maxValidationRetries !== undefined) {
+    if (typeof root.maxValidationRetries !== "number") {
+      throw new Error(
+        'User config "maxValidationRetries" must be a number when provided.'
+      );
+    }
+    overrides.maxValidationRetries = root.maxValidationRetries;
+  }
+
+  if (root.maxRegressionAttempts !== undefined) {
+    if (typeof root.maxRegressionAttempts !== "number") {
+      throw new Error(
+        'User config "maxRegressionAttempts" must be a number when provided.'
+      );
+    }
+    overrides.maxRegressionAttempts = root.maxRegressionAttempts;
+  }
+
+  if (root.maxThreadLifetimeAttempts !== undefined) {
+    if (typeof root.maxThreadLifetimeAttempts !== "number") {
+      throw new Error(
+        'User config "maxThreadLifetimeAttempts" must be a number when provided.'
+      );
+    }
+    overrides.maxThreadLifetimeAttempts = root.maxThreadLifetimeAttempts;
   }
 
   return overrides;
@@ -421,7 +796,10 @@ export async function loadConfig(): Promise<DriftlockConfig> {
 
   if (rawUserConfig === undefined) {
     enforceRequiredValidators(defaultConfig);
+    await ensureFormatterPathsExist(defaultConfig);
+    await ensurePullRequestAssetsExist(defaultConfig);
     await ensureValidatorPathsExist(defaultConfig);
+    await ensureAuditorPathsExist(defaultConfig);
     return defaultConfig;
   }
 
@@ -430,6 +808,8 @@ export async function loadConfig(): Promise<DriftlockConfig> {
 
   enforceRequiredValidators(merged);
   ensureValidatorNamesExist(merged);
+  await ensureFormatterPathsExist(merged);
+  await ensurePullRequestAssetsExist(merged);
   await ensureValidatorPathsExist(merged);
   await ensureAuditorPathsExist(merged);
 
@@ -498,6 +878,59 @@ async function ensureValidatorPathsExist(config: DriftlockConfig): Promise<void>
       );
     }
   });
+
+  await Promise.all(checks);
+}
+
+async function ensureFormatterPathsExist(config: DriftlockConfig): Promise<void> {
+  const checks = Object.entries(config.formatters).flatMap(([name, formatter]) => [
+    (async () => {
+      try {
+        await fs.access(formatter.path, fsConstants.R_OK);
+      } catch {
+        throw new Error(
+          `Formatter "${name}" path does not exist or is not readable: ${formatter.path}`
+        );
+      }
+    })(),
+    (async () => {
+      try {
+        await fs.access(formatter.schema, fsConstants.R_OK);
+      } catch {
+        throw new Error(
+          `Formatter "${name}" schema does not exist or is not readable: ${formatter.schema}`
+        );
+      }
+    })(),
+  ]);
+
+  await Promise.all(checks);
+}
+
+async function ensurePullRequestAssetsExist(config: DriftlockConfig): Promise<void> {
+  if (!config.pullRequest.enabled) return;
+
+  const formatter = config.pullRequest.formatter;
+  const checks = [
+    (async () => {
+      try {
+        await fs.access(formatter.path, fsConstants.R_OK);
+      } catch {
+        throw new Error(
+          `Pull request formatter path does not exist or is not readable: ${formatter.path}`
+        );
+      }
+    })(),
+    (async () => {
+      try {
+        await fs.access(formatter.schema, fsConstants.R_OK);
+      } catch {
+        throw new Error(
+          `Pull request formatter schema does not exist or is not readable: ${formatter.schema}`
+        );
+      }
+    })(),
+  ];
 
   await Promise.all(checks);
 }

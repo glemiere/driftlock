@@ -5,6 +5,7 @@ import { validateAgainstSchema } from "../src/utils/schema-validator";
 const schemaName = "Plan schema";
 
 const basePlan = {
+  name: "Example plan",
   noop: false,
   reason: "Work identified",
   plan: [
@@ -13,6 +14,7 @@ const basePlan = {
       why: "Because it's needed",
       filesInvolved: ["file.ts"],
       steps: ["step"],
+      supportiveEvidence: ["file.ts: evidence of problem"],
       risk: "LOW",
       category: "security",
     },
@@ -39,6 +41,14 @@ describe("plan schema", () => {
 
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
       /at most 3 item/i
+    );
+  });
+
+  it("rejects missing top-level name", () => {
+    const invalid = { ...basePlan };
+    delete (invalid as { name?: string }).name;
+    expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
+      /missing required key "name"/i
     );
   });
 
@@ -161,6 +171,7 @@ describe("plan schema", () => {
           action: "Do something",
           why: "Because",
           filesInvolved: ["file.ts"],
+          supportiveEvidence: ["file.ts: evidence"],
           category: "security",
           steps: ["step"],
         },
@@ -185,6 +196,7 @@ describe("plan schema", () => {
 
   it("rejects noop without reason", () => {
     const invalid = {
+      name: "noop",
       noop: true,
       plan: [],
     };
@@ -192,5 +204,21 @@ describe("plan schema", () => {
     expect(() => validateAgainstSchema(invalid, planSchema, { schemaName })).toThrow(
       /missing required key "reason"/i
     );
+  });
+
+  it("allows supportiveEvidence as an optional evidence array", () => {
+    const valid = {
+      ...basePlan,
+      plan: [
+        {
+          ...basePlan.plan[0],
+          supportiveEvidence: [
+            "apps/auth/src/service.ts: duplicated validation logic near lines 40-80",
+          ],
+        },
+      ],
+    };
+
+    expect(() => validateAgainstSchema(valid, planSchema, { schemaName })).not.toThrow();
   });
 });

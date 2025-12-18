@@ -2,12 +2,12 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { jest } from "@jest/globals";
-import { buildPlan } from "../src/core/codex";
+import { buildPlan } from "../src/core/plan/build-plan";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual("../src/core/codex/utils");
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual("../src/core/utils/codex-utils");
   return {
     ...actual,
     dynamicImport: jest.fn(async () => ({
@@ -39,7 +39,10 @@ describe("buildPlan", () => {
         events: (async function* () {
           yield {
             type: "item.completed",
-            item: { type: "agent_message", text: JSON.stringify({ plan: [], noop: true, reason: "noop" }) },
+            item: {
+              type: "agent_message",
+              text: JSON.stringify({ name: "noop", plan: [], noop: true, reason: "noop" }),
+            },
           };
         })(),
       };
@@ -56,7 +59,7 @@ describe("buildPlan", () => {
       workingDirectory: process.cwd(),
     });
 
-    expect(result).toEqual({ plan: [], noop: true, reason: "noop" });
+    expect(result).toEqual({ name: "noop", plan: [], noop: true, reason: "noop" });
     expect(mockRunStreamed).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/test-failure-summary.schema.json",
+  "title": "Test Failure Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Short human-readable one-line summary of the failing tests."
+    },
+    "failingTests": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of failing test identifiers."
+    },
+    "failingFiles": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of relative file paths implicated in failures."
+    },
+    "failureMessages": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short extracted assertion or error messages."
+    },
+    "rawSnippets": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Small relevant slices of original test output."
+    }
+  },
+  "required": ["summary", "failingTests", "failingFiles", "failureMessages", "rawSnippets"]
+}

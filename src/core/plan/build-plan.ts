@@ -1,13 +1,16 @@
 import { readTextFile } from "../../utils/fs";
 import type { ThreadEvent } from "@openai/codex-sdk";
+import type { ReasoningEffort } from "../config-loader";
 import {
   combinePrompts,
+  combineWithCoreContext,
   dynamicImport,
   extractAgentText,
   formatCodexError,
   formatEvent,
+  normalizeModelReasoningEffort,
   parseJsonSafe,
-} from "./utils";
+} from "../utils/codex-utils";
 
 export type BuildPlanOptions = {
   auditorName: string;
@@ -15,7 +18,9 @@ export type BuildPlanOptions = {
   planFormatter: string;
   planSchema: unknown;
   model: string;
+  reasoning?: ReasoningEffort;
   workingDirectory: string;
+  coreContext?: string | null;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -27,16 +32,22 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
     planFormatter,
     planSchema,
     model,
+    reasoning,
     workingDirectory,
+    coreContext,
     onEvent,
     onInfo,
   } = options;
 
-  const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter);
-  onInfo?.(`[${auditorName}] generating plan with model: ${model}`);
+  const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter, coreContext);
+  onInfo?.(
+    `[${auditorName}] generating plan with model: ${model}${
+      reasoning ? ` (reasoning: ${reasoning})` : ""
+    }`
+  );
 
   try {
-    const thread = await startPlanThread(model, workingDirectory);
+    const thread = await startPlanThread(model, reasoning, workingDirectory);
     const { latestAgentMessage, finalLogged } = await streamPlanEvents(
       thread.runStreamed.bind(thread),
       combinedPrompt,
@@ -52,18 +63,28 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
   }
 }
 
-async function loadCombinedPrompt(auditorPath: string, planFormatter: string): Promise<string> {
+async function loadCombinedPrompt(
+  auditorPath: string,
+  planFormatter: string,
+  coreContext?: string | null
+): Promise<string> {
   const auditorPrompt = await readTextFile(auditorPath);
-  return combinePrompts(auditorPrompt, planFormatter);
+  const withFormatter = combinePrompts(auditorPrompt, planFormatter);
+  return combineWithCoreContext(coreContext ?? null, withFormatter);
 }
 
 type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStreamed;
 
-async function startPlanThread(model: string, workingDirectory: string) {
+async function startPlanThread(
+  model: string,
+  reasoning: ReasoningEffort | undefined,
+  workingDirectory: string
+) {
   const { Codex } = await dynamicImport<typeof import("@openai/codex-sdk")>("@openai/codex-sdk");
   const codex = new Codex();
   return codex.startThread({
     model,
+    modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
     workingDirectory,
     skipGitRepoCheck: true,
   });

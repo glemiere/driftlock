@@ -10,6 +10,7 @@ import type {
   TodoListItem,
   WebSearchItem,
 } from "@openai/codex-sdk";
+import type { ReasoningEffort } from "../config-loader";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
@@ -25,6 +26,25 @@ const COLOR = {
 
 export function combinePrompts(auditorPrompt: string, formatter: string): string {
   const parts = [auditorPrompt.trim(), formatter.trim()].filter(Boolean);
+  return parts.join("\n\n");
+}
+
+export function normalizeModelReasoningEffort(
+  model: string,
+  reasoning?: ReasoningEffort
+): ReasoningEffort | undefined {
+  if (!reasoning) return undefined;
+
+  // Some models reject certain effort values (e.g., codex-mini rejects "minimal").
+  if (reasoning === "minimal" && model.toLowerCase().includes("mini")) {
+    return "low";
+  }
+
+  return reasoning;
+}
+
+export function combineWithCoreContext(core: string | null | undefined, prompt: string): string {
+  const parts = [core?.trim(), prompt.trim()].filter(Boolean) as string[];
   return parts.join("\n\n");
 }
 
@@ -78,20 +98,12 @@ function isAgentMessage(item: ThreadItem): item is AgentMessageItem {
   return item.type === "agent_message";
 }
 
-export function assertUnreachable(x: never): never {
-  throw new Error(`Unhandled event: ${JSON.stringify(x)}`);
-}
-
 export const dynamicImport: <T>(specifier: string) => Promise<T> = (specifier) =>
   new Function("specifier", "return import(specifier);")(specifier);
 
 function summarizeText(text: string, maxLen: number | null = 200): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
-  if (maxLen === null || maxLen === Infinity) {
-    return cleaned;
-  }
-  if (cleaned.length <= maxLen) return cleaned;
-  return `${cleaned.slice(0, maxLen - 1)}…`;
+  return cleaned;
 }
 
 function statusColor(status?: string): string {

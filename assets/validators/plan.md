@@ -17,7 +17,8 @@ Approve only plans that a disciplined engineer would consider:
 - **realistic** in scale, complexity, and feasibility  
 - **contained** within the domain/auditor that produced them  
 - **grounded** in observable evidence rather than assumptions  
-- **safe** in blast radius and impact  
+- **safe** in blast radius and impact
+- **stateless**: made of stateless steps that can be executed independently.
 
 The validator is biased toward **conservatism**:  
 when uncertain, **reject** and request a narrower plan.
@@ -113,6 +114,34 @@ If the configuration defines an `exclude` list, reject any plan item where:
 Exclusion lists are **absolute**.
 
 ---
+
+### 7. Accuracy Against the Actual Codebase
+
+A plan must be realistic and applicable to the current repository.
+
+Reject the plan if:
+
+- any proposed action refers to files, directories, or modules that do not exist,
+- the proposed solution cannot be carried out with the current code structure,
+- the step requires architectural elements that the project does not provide,
+- the plan assumes helper functions, modules, or patterns that the codebase does not have,
+- the solution contradicts existing boundaries, invariants, or repo conventions.
+
+This accuracy check ensures that the plan is grounded in the actual state of the codebase, not in assumptions or abstractions.
+
+### 8. Weak or Unjustified Noop Reasoning
+
+Reject the plan when:
+
+- `noop` is `true` but the `reason` does not describe a meaningful breadth of inspection (for example, it mentions only a very narrow area, or says nothing about what was inspected), or
+- the `reason` cites excuses such as “limited inspection”, “missing search tools”, “read-only constraints”, or similar claims instead of evidence-based coverage.
+
+When `noop` is true, the plan must:
+
+- summarize which kinds of modules/components/areas were inspected, and
+- explain why no high-priority, well-supported work items were found.
+
+If this cannot be done, reject and request a non-noop plan with at least one high-leverage, evidence-backed item.
 
 ## Acceptance Rules (Soft Guidance)
 

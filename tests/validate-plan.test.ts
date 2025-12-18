@@ -1,12 +1,12 @@
 import { jest } from "@jest/globals";
 import path from "path";
-import { validatePlan } from "../src/core/codex";
+import { validatePlan } from "../src/core/plan/validate-plan";
 
 const mockRunStreamed = jest.fn();
 
-jest.mock("../src/core/codex/utils", () => {
-  const actual = jest.requireActual<typeof import("../src/core/codex/utils")>(
-    "../src/core/codex/utils"
+jest.mock("../src/core/utils/codex-utils", () => {
+  const actual = jest.requireActual<typeof import("../src/core/utils/codex-utils")>(
+    "../src/core/utils/codex-utils"
   );
   return {
     ...actual,
@@ -29,12 +29,14 @@ describe("validatePlan exclusions", () => {
 
   it("rejects plans that touch excluded paths", async () => {
     const plan = {
+      name: "Add central AGENTS.md",
       plan: [
         {
           action: "Add central AGENTS.md",
           why: "Document available auditors",
           filesInvolved: ["AGENTS.md", ".ai/auditors/security.md"],
           steps: ["Create AGENTS.md linking to security auditor"],
+          supportiveEvidence: ["AGENTS.md missing; security auditor exists under .ai/auditors"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -70,12 +72,14 @@ describe("validatePlan exclusions", () => {
     }));
 
     const plan = {
+      name: "Touch non-excluded file",
       plan: [
         {
           action: "Touch non-excluded file",
           why: "Safe",
           filesInvolved: ["README.md"],
           steps: ["Update README"],
+          supportiveEvidence: ["README.md exists and is not excluded"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -109,12 +113,14 @@ describe("validatePlan exclusions", () => {
     }));
 
     const plan = {
+      name: "Touch non-excluded file",
       plan: [
         {
           action: "Touch non-excluded file",
           why: "Safe",
           filesInvolved: ["README.md"],
           steps: ["Update README"],
+          supportiveEvidence: ["README.md exists and is not excluded"],
           category: "Documentation",
           risk: "LOW",
         },
@@ -139,7 +145,7 @@ describe("validatePlan exclusions", () => {
   });
 
   it("rejects invalid plan schema before validator", async () => {
-    const invalidPlan = { noop: false, reason: "missing required fields", plan: [{}] };
+    const invalidPlan = { name: "Invalid", noop: false, reason: "missing required fields", plan: [{}] };
 
     const result = await validatePlan({
       auditorName: "documentation",
@@ -168,12 +174,14 @@ describe("validatePlan exclusions", () => {
     }));
 
     const planObj = {
+      name: "Update README",
       plan: [
         {
           action: "Update README",
           why: "Clarity",
           filesInvolved: ["README.md"],
           steps: ["Edit README"],
+          supportiveEvidence: ["Outdated section in README.md"],
           category: "Documentation",
           risk: "LOW",
         },

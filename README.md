@@ -189,9 +189,40 @@ These schemas complement the human-readable Markdown formatters by providing str
 - Validates:
   - `auditors` map and each auditor’s `enabled`, `path`, `validators`, optional `model`  
   - `validators` map (name → object with `path` and optional `model`)  
-  - `formatters.plan`, `formatters.schema`, optional `model`  
-  - top-level `exclude` array and optional `model`  
+  - `formatters` entries (`plan`, `executeStep`, `testFailureSummary`) with `path`, `schema`, optional `model`  
+  - top-level `exclude` array and top-level default `model`  
 - Editors and tooling can use this schema (via the `$schema` field in `config.default.json` or your own `driftlock.config.json`) to provide validation and autocomplete for configuration changes.
+
+### Quality gate stages
+
+The top-level `qualityGate` config defines the fail-fast stage commands:
+
+- `qualityGate.build` — `{ enabled, run }` build/typecheck stage.  
+- `qualityGate.lint` — `{ enabled, run }` lint stage.  
+- `qualityGate.test` — `{ enabled, run }` test stage.  
+
+Stages run in order: `build` → `lint` → `test`, and Driftlock stops at the first failure.
+
+### Baseline quality gate
+
+The top-level config also includes `runBaselineQualityGate` (default: `true`):
+
+- When `true`, Driftlock runs a full `build` → `lint` → `test` cycle once before any auditor executes, to establish baseline health.
+- When `false`, the orchestrator skips this baseline check and proceeds directly to auditor plans.
+
+### Pull request automation
+
+When Driftlock is running on a `driftlock/*` branch and has committed changes, it can open a GitHub PR when the run ends.
+
+- `pullRequest.enabled` — enable/disable automatic PR creation.
+- `pullRequest.formatter` — `{ path, schema, model }` used to generate a PR title/body summary of all committed plans (falls back to `gh pr create --fill` if summarization fails).
+
+Retry-related caps can also be tuned:
+
+- `maxRegressionAttempts` — maximum number of regression-fix attempts per step (0 means unbounded).  
+- `maxThreadLifetimeAttempts` — maximum number of Codex executor calls (apply + fix_regression) per step (0 means unbounded).  
+
+Defaults are conservative (`maxRegressionAttempts: 5`, `maxThreadLifetimeAttempts: 10`). For most projects you should keep caps enabled; setting them to `0` removes the guardrail and may cause long-running loops when underlying suites are persistently red.
 
 ######
 Developed with ❤️ by @glemiere.

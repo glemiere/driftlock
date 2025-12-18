@@ -4,7 +4,7 @@ export const BOLD = `${ESC}1m`;
 
 export const COLORS = {
   title: `${ESC}96m`,
-  accent: `${ESC}92m`,
+  accent: `${ESC}1;97m`,
   header: `${ESC}96m`,
   left: `${ESC}37m`,
   right: `${ESC}90m`,
@@ -32,6 +32,7 @@ export const MAX_BUFFER = 4000;
 export const KEY = {
   quit: "q",
   ctrlC: "\u0003",
+  ctrlQ: "\u0011",
 };
 
 export const LAYOUT = {
