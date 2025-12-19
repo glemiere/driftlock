@@ -70,6 +70,32 @@ describe("config-loader", () => {
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
   });
 
+  it("loads successfully when driftlock.config.json is a copy of config.default.json", async () => {
+    await withTempDir(async (dir) => {
+      const defaultConfigContents = await fs.readFile(
+        path.join(repoRoot, "config.default.json"),
+        "utf8"
+      );
+      await fs.writeFile(path.join(dir, "driftlock.config.json"), defaultConfigContents);
+
+      process.chdir(dir);
+      const config = await loadConfig();
+
+      expect(config.auditors.security.path).toBe(
+        path.resolve(repoRoot, "assets", "auditors", "security.md")
+      );
+      expect(config.validators.plan.path).toBe(
+        path.resolve(repoRoot, "assets", "validators", "plan.md")
+      );
+      expect(config.formatters.plan.path).toBe(
+        path.resolve(repoRoot, "assets", "formatters", "plan.md")
+      );
+      expect(config.pullRequest.formatter.path).toBe(
+        path.resolve(repoRoot, "assets", "formatters", "pull-request.md")
+      );
+    });
+  });
+
   it("supports model and reasoning overrides for auditors, validators, and formatters", async () => {
     await withTempDir(async (dir) => {
       const userConfig = {

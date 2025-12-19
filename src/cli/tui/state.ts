@@ -27,6 +27,8 @@ export const state: TuiState = {
   borderLength: 0,
   rightFlushTimer: undefined,
   exitRequested: false,
+  exitReason: undefined,
+  exitRequestedAt: undefined,
 };
 
 export function setTitle(value: string): void {
@@ -41,16 +43,24 @@ export function setFooterInfo(value: string): void {
   state.footerInfo = value || "";
 }
 
-export function requestExit(): void {
+export function requestExit(reason?: string): void {
   state.exitRequested = true;
+  state.exitReason = reason;
+  state.exitRequestedAt = Date.now();
 }
 
 export function clearExitRequest(): void {
   state.exitRequested = false;
+  state.exitReason = undefined;
+  state.exitRequestedAt = undefined;
 }
 
 export function isExitRequested(): boolean {
   return Boolean(state.exitRequested);
+}
+
+export function getExitReason(): string | undefined {
+  return state.exitReason;
 }
 
 export function toggleExitRequest(): void {

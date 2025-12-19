@@ -25,6 +25,8 @@ export type TuiState = {
   borderSegments: BorderSegment[];
   hue: number;
   exitRequested?: boolean;
+  exitReason?: string;
+  exitRequestedAt?: number;
   borderTimer?: NodeJS.Timeout;
   rightFlushTimer?: NodeJS.Timeout;
   lastBorderCols: number;

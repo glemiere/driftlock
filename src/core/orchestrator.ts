@@ -40,7 +40,7 @@ import { executeStepPhase } from "./step/step-runner";
 import { ThreadAttemptTracker } from "./utils/thread-tracker";
 import { parsePlan, isNoopPlan, logPlan } from "./plan/plan-utils";
 import { collectFiles, readSnapshots, filesChanged } from "./step/snapshots";
-import { rollbackPatches, rollbackWorkingTree, type AppliedPatch } from "./git/rollback";
+import { rollbackWorkingTree } from "./git/rollback";
 import { commitPlanChanges, pushBranch } from "./git/git-manager";
 export { ThreadAttemptTracker } from "./utils/thread-tracker";
 
@@ -58,6 +58,11 @@ export async function runAuditLoop(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (tui.isExitRequested()) {
+      const reason = tui.getExitReason?.();
+      tui.logLeft(
+        `Exit requested${reason ? ` (${reason})` : ""}; stopping before running ${auditors[index]}.`,
+        "warn"
+      );
       return { exitReason: "user_exit", committedPlans };
     }
 
@@ -81,6 +86,11 @@ export async function runAuditLoop(
     }
 
     if (tui.isExitRequested()) {
+      const reason = tui.getExitReason?.();
+      tui.logLeft(
+        `Exit requested${reason ? ` (${reason})` : ""}; stopping after ${auditorName}.`,
+        "warn"
+      );
       return { exitReason: "user_exit", committedPlans };
     }
 
@@ -121,7 +131,6 @@ async function runSingleAuditor(
   const auditor = config.auditors[auditorName];
   if (!auditor || !auditor.enabled) return { status: "no-plan" };
 
-  const appliedPatches: AppliedPatch[] = [];
   const planResult = await generatePlanForAuditor({
     auditorName,
     auditorPath: auditor.path,
@@ -153,9 +162,9 @@ async function runSingleAuditor(
   });
 
   for (const item of parsedPlan.plan) {
-    const executed = await executePlanItem(item, runtime, appliedPatches);
+    const executed = await executePlanItem(item, runtime);
     if (!executed) {
-      await safeRollback(appliedPatches, runtime.cwd, auditorName);
+      await safeRollback(runtime.cwd, auditorName);
       return { status: "failed" };
     }
   }
@@ -185,18 +194,12 @@ async function runSingleAuditor(
   return { status: "success", committedPlan };
 }
 
-async function safeRollback(
-  patches: AppliedPatch[],
-  cwd: string,
-  auditorName: string
-): Promise<void> {
+async function safeRollback(cwd: string, auditorName: string): Promise<void> {
   const spinner = tui
     .logLeft(`[${auditorName}] rolling back plan changes.`, "warn")
     .withSpinner("dots");
+
   try {
-    if (patches.length > 0) {
-      await rollbackPatches(patches, cwd);
-    }
     await rollbackWorkingTree(cwd);
     spinner.success(`[${auditorName}] rolled back plan changes.`);
   } catch (error) {
@@ -481,7 +484,6 @@ function createStepRuntime(args: {
 async function executePlanItem(
   item: PlanItem,
   runtime: StepRuntime,
-  appliedPatches: AppliedPatch[]
 ): Promise<boolean> {
   const steps = Array.isArray(item.steps) ? item.steps : [];
 
@@ -493,12 +495,6 @@ async function executePlanItem(
     const outcome = await runStepPipeline(stepDetails, runtime);
     if (!outcome.success) {
       return false;
-    }
-    if (outcome.execution?.patch) {
-      appliedPatches.push({
-        patch: outcome.execution.patch,
-        description: stepDetails.displayStep,
-      });
     }
   }
 

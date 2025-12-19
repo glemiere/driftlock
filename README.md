@@ -2,6 +2,8 @@
 
 - [Overview](#overview)
 - [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Config](#config)
 - [Auditors](#auditors)
     - [Default Auditors](#default-auditors)
 - [Validators](#validators)
@@ -24,6 +26,10 @@ As of today, you need to have both the git CLI and the codex CLI installed on yo
 ## Config
 
 Start by creating a `driftlock.config.json` at the root of your project. It allows you to modify the default configuration, for example:
+
+To generate a full config template, run:
+
+`driftlock init`
 
 ```
 {

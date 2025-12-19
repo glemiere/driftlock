@@ -30,10 +30,33 @@ function handleExecutorFailure(
   );
 
   const summaryLower = (result.summary || "").toLowerCase();
-  const nothingToChange =
-    summaryLower.includes("nothing to change") ||
-    summaryLower.includes("nothing can be removed") ||
-    summaryLower.includes("no changes made");
+  const nothingToChangePhrases = [
+    "nothing to change",
+    "nothing can be removed",
+    "no changes made",
+    "no change to apply",
+    "no changes to apply",
+    "no patch to apply",
+    "already lacks",
+    "already removed",
+    "already doesn't have",
+    "already does not have",
+    "no regression fix is necessary",
+    "no regression fix necessary",
+    "no regression fix is needed",
+    "no regression fix needed",
+    "no regression fix required",
+    "no fix is necessary",
+    "no fix necessary",
+    "no fix required",
+    "nothing to delete",
+    "nothing to remove",
+    "no-op",
+    "noop",
+  ];
+  const nothingToChange = nothingToChangePhrases.some((phrase) =>
+    summaryLower.includes(phrase)
+  );
   if (nothingToChange) {
     return { kind: "abort" };
   }

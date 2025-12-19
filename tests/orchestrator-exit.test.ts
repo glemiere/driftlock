@@ -5,6 +5,7 @@ import type { DriftlockConfig } from "../src/core/config-loader";
 jest.mock("../src/cli/tui", () => ({
   tui: {
     isExitRequested: jest.fn(),
+    getExitReason: jest.fn(),
     logLeft: jest.fn(() => ({
       withSpinner: () => ({
         stop: jest.fn(),
@@ -108,4 +109,3 @@ describe("runAuditLoop exit behavior", () => {
     expect(result.committedPlans).toHaveLength(1);
   });
 });
-

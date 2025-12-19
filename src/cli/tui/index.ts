@@ -2,7 +2,14 @@ import { initTui, resize, shutdown } from "./lifecycle";
 import { logLeft, logRight, updateLeft } from "./io";
 import { render as tuiRender } from "./render";
 import { initBorders, startRainbowBorder } from "./border";
-import { setFooterInfo, setHeaderInfo, setTitle, isExitRequested, requestExit } from "./state";
+import {
+  setFooterInfo,
+  setHeaderInfo,
+  setTitle,
+  isExitRequested,
+  requestExit,
+  getExitReason,
+} from "./state";
 
 export const tui = {
   init: initTui,
@@ -14,6 +21,7 @@ export const tui = {
   setTitle,
   isExitRequested,
   requestExit,
+  getExitReason,
   resize,
   render: tuiRender,
   shutdown,
@@ -22,5 +30,5 @@ export const tui = {
 };
 
 process.on("exit", shutdown);
-process.on("SIGINT", () => requestExit());
-process.on("SIGTERM", () => requestExit());
+process.on("SIGINT", () => requestExit("SIGINT"));
+process.on("SIGTERM", () => requestExit("SIGTERM"));

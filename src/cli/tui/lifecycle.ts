@@ -10,14 +10,14 @@ function handleKey(chunk: Buffer): void {
   if (handleMouse(chunk)) return;
   const key = chunk.toString();
   if (key === KEY.ctrlC) {
-    requestExit();
+    requestExit("ctrl+c");
   } else if (key === KEY.ctrlQ) {
     // Hard exit on Ctrl+Q: immediately request exit and terminate the process.
-    requestExit();
+    requestExit("ctrl+q");
     shutdown();
     process.exit(0);
   } else if (key === KEY.quit) {
-    requestExit();
+    requestExit("q");
   }
 }
 

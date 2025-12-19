@@ -1,5 +1,5 @@
 import path from "path";
-import { promises as fs, constants as fsConstants } from "fs";
+import { promises as fs, constants as fsConstants, existsSync } from "fs";
 import defaultConfigJson from "../../config.default.json";
 import configSchemaJson from "../../assets/schemas/config.schema.json";
 import { validateAgainstSchema } from "../utils/schema-validator";
@@ -98,6 +98,18 @@ type RawConfigObject = Record<string, unknown>;
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const REQUIRED_VALIDATORS = ["plan"];
+
+function resolveUserConfigPath(cwd: string, userPath: string): string {
+  if (path.isAbsolute(userPath)) return userPath;
+
+  const cwdCandidate = path.resolve(cwd, userPath);
+  if (existsSync(cwdCandidate)) return cwdCandidate;
+
+  const packageCandidate = path.resolve(PACKAGE_ROOT, userPath);
+  if (existsSync(packageCandidate)) return packageCandidate;
+
+  return cwdCandidate;
+}
 
 function isPlainObject(value: unknown): value is RawConfigObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -425,7 +437,7 @@ function buildUserAuditorOverrides(
         );
       }
 
-      auditorOverride.path = path.resolve(cwd, value.path);
+      auditorOverride.path = resolveUserConfigPath(cwd, value.path);
     }
 
     if ("validators" in value) {
@@ -479,7 +491,7 @@ function buildUserValidatorOverrides(
 
   for (const [name, value] of Object.entries(validatorsObj)) {
     if (typeof value === "string") {
-      overrides[name] = { path: path.resolve(cwd, value) };
+      overrides[name] = { path: resolveUserConfigPath(cwd, value) };
       continue;
     }
 
@@ -490,7 +502,7 @@ function buildUserValidatorOverrides(
     }
 
     overrides[name] = {
-      path: path.resolve(cwd, value.path),
+      path: resolveUserConfigPath(cwd, value.path),
       model: typeof value.model === "string" ? value.model : undefined,
       reasoning:
         typeof value.reasoning === "string"
@@ -526,14 +538,14 @@ function buildUserFormatterOverrides(
       if (typeof raw.path !== "string") {
         throw new Error(`User config formatter "${String(name)}.path" must be a string.`);
       }
-      partial.path = path.resolve(cwd, raw.path);
+      partial.path = resolveUserConfigPath(cwd, raw.path);
     }
 
     if ("schema" in raw) {
       if (typeof raw.schema !== "string") {
         throw new Error(`User config formatter "${String(name)}.schema" must be a string.`);
       }
-      partial.schema = path.resolve(cwd, raw.schema);
+      partial.schema = resolveUserConfigPath(cwd, raw.schema);
     }
 
     if ("model" in raw) {
@@ -618,14 +630,14 @@ function buildUserPullRequestOverrides(
       if (typeof formatterObj.path !== "string") {
         throw new Error('User config "pullRequest.formatter.path" must be a string.');
       }
-      partial.path = path.resolve(cwd, formatterObj.path);
+      partial.path = resolveUserConfigPath(cwd, formatterObj.path);
     }
 
     if ("schema" in formatterObj) {
       if (typeof formatterObj.schema !== "string") {
         throw new Error('User config "pullRequest.formatter.schema" must be a string.');
       }
-      partial.schema = path.resolve(cwd, formatterObj.schema);
+      partial.schema = resolveUserConfigPath(cwd, formatterObj.schema);
     }
 
     if ("model" in formatterObj) {

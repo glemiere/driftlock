@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { runAuditCommand } from "./commands/audit";
+import { runInitCommand } from "./commands/init";
 
 const program = new Command();
 
@@ -20,5 +21,11 @@ program
     "comma-separated list of auditors (e.g. complexity,security)"
   )
   .action(runAuditCommand);
+
+program
+  .command("init")
+  .description("Create driftlock.config.json from the default config template")
+  .option("-f, --force", "overwrite existing driftlock.config.json")
+  .action(runInitCommand);
 
 program.parse();
