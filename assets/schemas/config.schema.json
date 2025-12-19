@@ -105,11 +105,16 @@
           "type": "boolean",
           "description": "Whether to open a PR automatically when Driftlock exits and changes were committed."
         },
+        "gitHostSaas": {
+          "type": "string",
+          "description": "Which Git hosting SaaS to use for pull request operations (currently only GitHub is supported).",
+          "enum": ["github"]
+        },
         "formatter": {
           "$ref": "#/$defs/formatterConfig"
         }
       },
-      "required": ["enabled", "formatter"]
+      "required": ["enabled", "gitHostSaas", "formatter"]
     }
   },
   "required": ["auditors", "validators", "formatters"],

@@ -22,8 +22,12 @@ function handleKey(chunk: Buffer): void {
 }
 
 export function shutdown(): void {
-  if (!state.active) return;
+  if (!state.active) {
+    state.enabled = false;
+    return;
+  }
   state.active = false;
+  state.enabled = false;
   if (state.borderTimer) {
     clearInterval(state.borderTimer);
     state.borderTimer = undefined;

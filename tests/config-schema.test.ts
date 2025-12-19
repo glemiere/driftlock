@@ -153,6 +153,7 @@ describe("config schema", () => {
       formatters: minimalFormatters,
       pullRequest: {
         enabled: "true",
+        gitHostSaas: "github",
         formatter: {
           path: "./formatters/pull-request.md",
           schema: "./schemas/pull-request.schema.json",
@@ -172,6 +173,7 @@ describe("config schema", () => {
       formatters: minimalFormatters,
       pullRequest: {
         enabled: true,
+        gitHostSaas: "github",
         formatter: {
           path: 123,
           schema: "./schemas/pull-request.schema.json",

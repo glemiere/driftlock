@@ -1,9 +1,19 @@
-import { describe, expect, it, afterEach } from "@jest/globals";
+import { describe, expect, it, afterEach, beforeEach, jest } from "@jest/globals";
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-import { loadConfig } from "../src/core/config-loader";
+jest.mock("../src/core/utils/run-commands", () => ({
+  runCommand: jest.fn(),
+}));
+
+const mockedRunCommand = (
+  require("../src/core/utils/run-commands") as typeof import("../src/core/utils/run-commands")
+).runCommand as jest.MockedFunction<
+  typeof import("../src/core/utils/run-commands").runCommand
+>;
+
+const loadConfig = async () => (await import("../src/core/config-loader")).loadConfig();
 
 const originalCwd = process.cwd();
 const repoRoot = path.resolve(__dirname, "..");
@@ -18,6 +28,10 @@ async function withTempDir(run: (dir: string) => Promise<void>) {
 }
 
 describe("config-loader", () => {
+  beforeEach(() => {
+    mockedRunCommand.mockResolvedValue({ ok: true, stdout: "gh version 0.0.0", stderr: "", code: 0 });
+  });
+
   it("returns defaults when no user config present", async () => {
     process.chdir(repoRoot);
     const config = await loadConfig();
@@ -46,6 +60,7 @@ describe("config-loader", () => {
     expect(typeof config.qualityGate.lint.enabled).toBe("boolean");
     expect(typeof config.qualityGate.test.enabled).toBe("boolean");
     expect(typeof config.pullRequest.enabled).toBe("boolean");
+    expect(typeof config.pullRequest.gitHostSaas).toBe("string");
     expect(path.isAbsolute(config.pullRequest.formatter.path)).toBe(true);
     expect(path.isAbsolute(config.pullRequest.formatter.schema)).toBe(true);
     expect(typeof config.pullRequest.formatter.model).toBe("string");

@@ -64,10 +64,6 @@ export async function runAuditLoop(
     const auditorName = auditors[index];
     const outcome = await runSingleAuditor(auditorName, config, context, gitContext);
 
-    if (tui.isExitRequested()) {
-      return { exitReason: "user_exit", committedPlans };
-    }
-
     if (outcome.status === "success") {
       noPlanStreak = 0;
       if (outcome.committedPlan) {
@@ -82,6 +78,10 @@ export async function runAuditLoop(
     } else {
       // failure: do not count toward no-plan streak
       noPlanStreak = 0;
+    }
+
+    if (tui.isExitRequested()) {
+      return { exitReason: "user_exit", committedPlans };
     }
 
     index = (index + 1) % auditors.length;

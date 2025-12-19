@@ -3,6 +3,7 @@ import { promises as fs, constants as fsConstants } from "fs";
 import defaultConfigJson from "../../config.default.json";
 import configSchemaJson from "../../assets/schemas/config.schema.json";
 import { validateAgainstSchema } from "../utils/schema-validator";
+import { runCommand } from "./utils/run-commands";
 
 export type AuditorConfig = {
   enabled: boolean;
@@ -34,6 +35,7 @@ export type QualityGateStageConfig = {
 
 export type PullRequestConfig = {
   enabled: boolean;
+  gitHostSaas: GitHostSaas;
   formatter: FormatterConfig;
 };
 
@@ -60,6 +62,7 @@ export type DriftlockConfig = {
   reasoning?: ReasoningEffort;
 };
 
+export type GitHostSaas = "github";
 export type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 type AuditorConfigOverride = Partial<AuditorConfig>;
@@ -79,6 +82,7 @@ type DriftlockConfigOverrides = {
   };
   pullRequest?: {
     enabled?: boolean;
+    gitHostSaas?: GitHostSaas;
     formatter?: Partial<FormatterConfig>;
   };
   runBaselineQualityGate?: boolean;
@@ -258,6 +262,7 @@ function normalizeDefaultPullRequest(root: RawConfigObject): PullRequestConfig {
   if (raw === undefined) {
     return {
       enabled: false,
+      gitHostSaas: "github",
       formatter: {
         path: path.resolve(PACKAGE_ROOT, "assets", "formatters", "pull-request.md"),
         schema: path.resolve(PACKAGE_ROOT, "assets", "schemas", "pull-request.schema.json"),
@@ -274,6 +279,11 @@ function normalizeDefaultPullRequest(root: RawConfigObject): PullRequestConfig {
     throw new Error('Default config "pullRequest.enabled" must be a boolean.');
   }
 
+  const gitHostSaas = (raw as RawConfigObject).gitHostSaas;
+  if (typeof gitHostSaas !== "string") {
+    throw new Error('Default config "pullRequest.gitHostSaas" must be a string.');
+  }
+
   if (!("formatter" in raw)) {
     throw new Error('Default config "pullRequest.formatter" is required.');
   }
@@ -283,7 +293,7 @@ function normalizeDefaultPullRequest(root: RawConfigObject): PullRequestConfig {
     (raw as RawConfigObject).formatter
   );
 
-  return { enabled, formatter };
+  return { enabled, gitHostSaas: gitHostSaas as GitHostSaas, formatter };
 }
 
 function normalizeDefaultExclude(root: RawConfigObject): string[] {
@@ -588,6 +598,13 @@ function buildUserPullRequestOverrides(
     override.enabled = prObj.enabled;
   }
 
+  if ("gitHostSaas" in prObj) {
+    if (prObj.gitHostSaas !== undefined && typeof prObj.gitHostSaas !== "string") {
+      throw new Error('User config "pullRequest.gitHostSaas" must be a string.');
+    }
+    override.gitHostSaas = prObj.gitHostSaas as GitHostSaas | undefined;
+  }
+
   if ("formatter" in prObj) {
     const formatterRaw = prObj.formatter;
     if (!isPlainObject(formatterRaw)) {
@@ -798,6 +815,7 @@ export async function loadConfig(): Promise<DriftlockConfig> {
     enforceRequiredValidators(defaultConfig);
     await ensureFormatterPathsExist(defaultConfig);
     await ensurePullRequestAssetsExist(defaultConfig);
+    await ensurePullRequestToolingAvailable(defaultConfig);
     await ensureValidatorPathsExist(defaultConfig);
     await ensureAuditorPathsExist(defaultConfig);
     return defaultConfig;
@@ -810,6 +828,7 @@ export async function loadConfig(): Promise<DriftlockConfig> {
   ensureValidatorNamesExist(merged);
   await ensureFormatterPathsExist(merged);
   await ensurePullRequestAssetsExist(merged);
+  await ensurePullRequestToolingAvailable(merged);
   await ensureValidatorPathsExist(merged);
   await ensureAuditorPathsExist(merged);
 
@@ -933,4 +952,17 @@ async function ensurePullRequestAssetsExist(config: DriftlockConfig): Promise<vo
   ];
 
   await Promise.all(checks);
+}
+
+async function ensurePullRequestToolingAvailable(config: DriftlockConfig): Promise<void> {
+  if (!config.pullRequest.enabled) return;
+
+  if (config.pullRequest.gitHostSaas === "github") {
+    const gh = await runCommand("gh --version", process.cwd());
+    if (!gh.ok) {
+      throw new Error(
+        'GitHub CLI ("gh") is required when pullRequest.gitHostSaas is "github". Install it from https://cli.github.com/ or disable pullRequest.enabled.'
+      );
+    }
+  }
 }

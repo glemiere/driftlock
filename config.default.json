@@ -13,6 +13,7 @@
   "maxThreadLifetimeAttempts": 30,
   "pullRequest": {
     "enabled": true,
+    "gitHostSaas": "github",
     "formatter": {
       "path": "./assets/formatters/pull-request.md",
       "schema": "./assets/schemas/pull-request.schema.json",
