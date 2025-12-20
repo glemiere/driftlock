@@ -74,6 +74,7 @@ export type ExecuteStepPhaseArgs = {
   excludePaths: string[];
   workingDirectory: string;
   additionalContext: string;
+  turnTimeoutMs?: number;
   tracker: StepTracker;
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
@@ -114,6 +115,7 @@ export type StepRuntime = {
   executeStepValidatorReasoning?: ReasoningEffort;
   cwd: string;
   excludePaths: string[];
+  turnTimeoutMs?: number;
   condense: (stdout: string, stderr: string) => Promise<string | undefined>;
 };
 

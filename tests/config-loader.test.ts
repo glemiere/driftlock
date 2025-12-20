@@ -68,6 +68,7 @@ describe("config-loader", () => {
     expect(typeof config.maxValidationRetries).toBe("number");
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
+    expect(typeof config.turnTimeoutMs).toBe("number");
   });
 
   it("loads successfully when driftlock.config.json is a copy of config.default.json", async () => {

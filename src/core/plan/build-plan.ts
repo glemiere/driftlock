@@ -4,6 +4,7 @@ import type { ReasoningEffort } from "../config-loader";
 import {
   combinePrompts,
   combineWithCoreContext,
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -21,6 +22,7 @@ export type BuildPlanOptions = {
   reasoning?: ReasoningEffort;
   workingDirectory: string;
   coreContext?: string | null;
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -35,6 +37,7 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
     reasoning,
     workingDirectory,
     coreContext,
+    turnTimeoutMs,
     onEvent,
     onInfo,
   } = options;
@@ -53,6 +56,7 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
       combinedPrompt,
       planSchema,
       auditorName,
+      turnTimeoutMs,
       onEvent
     );
     return finalizePlan(latestAgentMessage, finalLogged, auditorName, onEvent);
@@ -95,28 +99,42 @@ async function streamPlanEvents(
   prompt: string,
   planSchema: unknown,
   auditorName: string,
+  turnTimeoutMs?: number,
   onEvent?: (formatted: string, colorKey?: string) => void
 ): Promise<{ latestAgentMessage: string | null; finalLogged: boolean }> {
-  const { events } = await runStreamed(prompt, { outputSchema: planSchema });
-  let latestAgentMessage: string | null = null;
-  let finalLogged = false;
+  const timeout = createTurnTimeout(turnTimeoutMs);
+  try {
+    const { events } = await runStreamed(prompt, {
+      outputSchema: planSchema,
+      ...(timeout.signal ? { signal: timeout.signal } : {}),
+    });
+    let latestAgentMessage: string | null = null;
+    let finalLogged = false;
 
-  for await (const event of events as AsyncGenerator<ThreadEvent>) {
-    const formatted = formatEvent(auditorName, event);
-    if (formatted && onEvent) {
-      onEvent(formatted);
-    }
+    for await (const event of events as AsyncGenerator<ThreadEvent>) {
+      const formatted = formatEvent(auditorName, event);
+      if (formatted && onEvent) {
+        onEvent(formatted);
+      }
 
-    const text = extractAgentText(event);
-    if (text) {
-      latestAgentMessage = text;
-      if (event.type === "item.completed" && event.item.type === "agent_message") {
-        finalLogged = true;
+      const text = extractAgentText(event);
+      if (text) {
+        latestAgentMessage = text;
+        if (event.type === "item.completed" && event.item.type === "agent_message") {
+          finalLogged = true;
+        }
       }
     }
-  }
 
-  return { latestAgentMessage, finalLogged };
+    return { latestAgentMessage, finalLogged };
+  } catch (error) {
+    if (timeout.didTimeout() && timeout.timeoutMs) {
+      throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    timeout.clear();
+  }
 }
 
 function finalizePlan(

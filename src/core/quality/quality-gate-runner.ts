@@ -37,6 +37,7 @@ export function createTestFailureCondenser(
       workingDirectory: cwd,
       formatterPath: config.formatters.testFailureSummary.path,
       schemaPath: config.formatters.testFailureSummary.schema,
+      turnTimeoutMs: config.turnTimeoutMs,
       onEvent: (text) => tui.logRight(text),
       onInfo: (text) => tui.logLeft(text),
     });

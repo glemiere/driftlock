@@ -2,6 +2,7 @@ import { readJsonFile, readTextFile } from "../../utils/fs";
 import type { ReasoningEffort } from "../config-loader";
 import {
   combineWithCoreContext,
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -18,6 +19,7 @@ export type ValidateExecuteStepOptions = {
   reasoning?: ReasoningEffort;
   workingDirectory: string;
   coreContext?: string | null;
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -41,6 +43,7 @@ export async function validateExecuteStep(
     reasoning,
     workingDirectory,
     coreContext,
+    turnTimeoutMs,
     onEvent,
     onInfo,
   } = options;
@@ -72,6 +75,7 @@ export async function validateExecuteStep(
       combinedPrompt,
       validateSchema,
       "execute-step-validator",
+      turnTimeoutMs,
       onEvent
     );
 
@@ -106,32 +110,44 @@ async function collectValidationResult(
   prompt: string,
   schema: unknown,
   contextLabel: string,
+  turnTimeoutMs?: number,
   onEvent?: (formatted: string, colorKey?: string) => void
 ): Promise<ValidateExecuteStepResult | null> {
-  const { events } = await runStreamed(prompt, {
-    outputSchema: schema,
-  });
+  const timeout = createTurnTimeout(turnTimeoutMs);
+  try {
+    const { events } = await runStreamed(prompt, {
+      outputSchema: schema,
+      ...(timeout.signal ? { signal: timeout.signal } : {}),
+    });
 
-  let result: ValidateExecuteStepResult | null = null;
+    let result: ValidateExecuteStepResult | null = null;
 
-  for await (const event of events) {
-    const formatted = formatEvent(contextLabel, event);
-    if (formatted && onEvent) {
-      onEvent(formatted, formatted);
-    }
+    for await (const event of events) {
+      const formatted = formatEvent(contextLabel, event);
+      if (formatted && onEvent) {
+        onEvent(formatted, formatted);
+      }
 
-    const text = extractAgentText(event);
-    if (text && result === null) {
-      try {
-        const parsed = JSON.parse(text) as Partial<ValidateExecuteStepResult>;
-        if (typeof parsed.valid === "boolean") {
-          result = { valid: parsed.valid, reason: parsed.reason };
+      const text = extractAgentText(event);
+      if (text && result === null) {
+        try {
+          const parsed = JSON.parse(text) as Partial<ValidateExecuteStepResult>;
+          if (typeof parsed.valid === "boolean") {
+            result = { valid: parsed.valid, reason: parsed.reason };
+          }
+        } catch {
+          // ignore parse errors; continue to next event
         }
-      } catch {
-        // ignore parse errors; continue to next event
       }
     }
-  }
 
-  return result;
+    return result;
+  } catch (error) {
+    if (timeout.didTimeout() && timeout.timeoutMs) {
+      throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    timeout.clear();
+  }
 }

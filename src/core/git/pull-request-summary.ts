@@ -1,6 +1,7 @@
 import { readJsonFile, readTextFile } from "../../utils/fs";
 import type { ReasoningEffort } from "../config-loader";
 import {
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -27,6 +28,7 @@ export async function summarizePullRequest(options: {
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
+  turnTimeoutMs?: number;
   branch?: string;
   baseBranch?: string;
   committedPlans: PullRequestPlanSummary[];
@@ -39,6 +41,7 @@ export async function summarizePullRequest(options: {
     workingDirectory,
     formatterPath,
     schemaPath,
+    turnTimeoutMs,
     branch,
     baseBranch,
     committedPlans,
@@ -72,27 +75,40 @@ export async function summarizePullRequest(options: {
       committedPlans,
     });
 
-    const { events } = await thread.runStreamed(prompt, { outputSchema: schema });
-    let latest: PullRequestSummary | null = null;
+    const timeout = createTurnTimeout(turnTimeoutMs);
+    try {
+      const { events } = await thread.runStreamed(prompt, {
+        outputSchema: schema,
+        ...(timeout.signal ? { signal: timeout.signal } : {}),
+      });
+      let latest: PullRequestSummary | null = null;
 
-    for await (const event of events) {
-      const formatted = formatEvent("pull-request", event);
-      if (formatted && onEvent) {
-        onEvent(formatted);
+      for await (const event of events) {
+        const formatted = formatEvent("pull-request", event);
+        if (formatted && onEvent) {
+          onEvent(formatted);
+        }
+
+        const text = extractAgentText(event);
+        if (!text) continue;
+        const parsed = parseJsonSafe(text);
+        if (!parsed || typeof parsed !== "object") continue;
+
+        const obj = parsed as Partial<PullRequestSummary>;
+        if (typeof obj.title === "string" && typeof obj.body === "string") {
+          latest = { title: obj.title, body: obj.body };
+        }
       }
 
-      const text = extractAgentText(event);
-      if (!text) continue;
-      const parsed = parseJsonSafe(text);
-      if (!parsed || typeof parsed !== "object") continue;
-
-      const obj = parsed as Partial<PullRequestSummary>;
-      if (typeof obj.title === "string" && typeof obj.body === "string") {
-        latest = { title: obj.title, body: obj.body };
+      return latest;
+    } catch (error) {
+      if (timeout.didTimeout() && timeout.timeoutMs) {
+        throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
       }
+      throw error;
+    } finally {
+      timeout.clear();
     }
-
-    return latest;
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[pull-request] Codex error: ${message}`);

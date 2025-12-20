@@ -204,6 +204,19 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
+  it("rejects turnTimeoutMs when not number", () => {
+    const invalid = {
+      auditors: {},
+      validators: {},
+      formatters: minimalFormatters,
+      turnTimeoutMs: "fast",
+    };
+
+    expect(() =>
+      validateAgainstSchema(invalid, configSchema, { schemaName })
+    ).toThrow(/turnTimeoutMs/i);
+  });
+
   it("rejects invalid reasoning values", () => {
     const invalid = {
       auditors: {},

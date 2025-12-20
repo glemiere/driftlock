@@ -1,4 +1,5 @@
 import {
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -29,6 +30,7 @@ export async function summarizeTestFailures(options: {
   workingDirectory: string;
   formatterPath: string;
   schemaPath: string;
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 }): Promise<TestFailureSummary | null> {
@@ -40,6 +42,7 @@ export async function summarizeTestFailures(options: {
     workingDirectory,
     formatterPath,
     schemaPath,
+    turnTimeoutMs,
     onEvent,
     onInfo,
   } = options;
@@ -73,35 +76,48 @@ export async function summarizeTestFailures(options: {
       stderrChars: stderr?.length ?? 0,
     });
 
-    const { events } = await thread.runStreamed(prompt, { outputSchema: schema });
-    let latest: TestFailureSummary | null = null;
+    const timeout = createTurnTimeout(turnTimeoutMs);
+    try {
+      const { events } = await thread.runStreamed(prompt, {
+        outputSchema: schema,
+        ...(timeout.signal ? { signal: timeout.signal } : {}),
+      });
+      let latest: TestFailureSummary | null = null;
 
-    for await (const event of events) {
-      const formatted = formatEvent("test-failure-condenser", event);
-      if (formatted && onEvent) {
-        onEvent(formatted);
-      }
+      for await (const event of events) {
+        const formatted = formatEvent("test-failure-condenser", event);
+        if (formatted && onEvent) {
+          onEvent(formatted);
+        }
 
-      const text = extractAgentText(event);
-      if (text) {
-        try {
-          const parsed = JSON.parse(text) as Partial<TestFailureSummary>;
-          if (typeof parsed.summary === "string") {
-            latest = {
-              summary: parsed.summary,
-              failingTests: parsed.failingTests,
-              failingFiles: parsed.failingFiles,
-              failureMessages: parsed.failureMessages,
-              rawSnippets: parsed.rawSnippets,
-            };
+        const text = extractAgentText(event);
+        if (text) {
+          try {
+            const parsed = JSON.parse(text) as Partial<TestFailureSummary>;
+            if (typeof parsed.summary === "string") {
+              latest = {
+                summary: parsed.summary,
+                failingTests: parsed.failingTests,
+                failingFiles: parsed.failingFiles,
+                failureMessages: parsed.failureMessages,
+                rawSnippets: parsed.rawSnippets,
+              };
+            }
+          } catch {
+            // ignore parse errors; keep streaming
           }
-        } catch {
-          // ignore parse errors; keep streaming
         }
       }
-    }
 
-    return latest;
+      return latest;
+    } catch (error) {
+      if (timeout.didTimeout() && timeout.timeoutMs) {
+        throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
+      }
+      throw error;
+    } finally {
+      timeout.clear();
+    }
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[test-failure-condenser] Codex error: ${message}`);

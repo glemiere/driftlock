@@ -96,6 +96,11 @@
       "minimum": 0,
       "description": "Upper bound on Codex executor invocations (apply + fix_regression) per step (0 means unbounded)."
     },
+    "turnTimeoutMs": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Maximum time in milliseconds for a single Codex turn before aborting (0 disables the timeout)."
+    },
     "pullRequest": {
       "type": "object",
       "description": "Configuration for opening a GitHub Pull Request at the end of a run.",

@@ -11,6 +11,7 @@
   "maxValidationRetries": 1,
   "maxRegressionAttempts": 10,
   "maxThreadLifetimeAttempts": 30,
+  "turnTimeoutMs": 600000,
   "pullRequest": {
     "enabled": true,
     "gitHostSaas": "github",

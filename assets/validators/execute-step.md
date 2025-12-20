@@ -123,7 +123,8 @@ Reject when the `patch` content is clearly malformed or missing standard unified
 You do not need to parse the patch perfectly.  
 Instead, apply a conservative rule: if the patch does not look like a standard unified diff that can be safely applied and rolled back, reject it.
 
-- Reject if the executor attempts to run or report build/test/lint execution; those commands are handled outside the executor.
+- Do not reject solely because the executor ran a targeted test suite; allow it when the step explicitly requires tests or a regression fix needs verification.
+- Reject if the executor runs broad build/lint/test cycles unrelated to the step intent.
 
 ### 7. Zero-Impact Success Patches
 

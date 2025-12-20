@@ -56,6 +56,7 @@ export type DriftlockConfig = {
   maxValidationRetries: number;
   maxRegressionAttempts: number;
   maxThreadLifetimeAttempts: number;
+  turnTimeoutMs: number;
   pullRequest: PullRequestConfig;
   exclude: string[];
   model?: string;
@@ -89,6 +90,7 @@ type DriftlockConfigOverrides = {
   maxValidationRetries?: number;
   maxRegressionAttempts?: number;
   maxThreadLifetimeAttempts?: number;
+  turnTimeoutMs?: number;
   exclude?: string[];
   model?: string;
   reasoning?: ReasoningEffort;
@@ -375,6 +377,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const pullRequest = normalizeDefaultPullRequest(root);
   const model = typeof root.model === "string" ? root.model : undefined;
   const reasoning = typeof root.reasoning === "string" ? (root.reasoning as ReasoningEffort) : undefined;
+  const turnTimeoutMs = typeof root.turnTimeoutMs === "number" ? root.turnTimeoutMs : 0;
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -394,6 +397,7 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
       typeof root.maxThreadLifetimeAttempts === "number"
         ? root.maxThreadLifetimeAttempts
         : 5,
+    turnTimeoutMs,
     formatters,
     pullRequest,
     exclude,
@@ -788,6 +792,13 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       );
     }
     overrides.maxThreadLifetimeAttempts = root.maxThreadLifetimeAttempts;
+  }
+
+  if (root.turnTimeoutMs !== undefined) {
+    if (typeof root.turnTimeoutMs !== "number") {
+      throw new Error('User config "turnTimeoutMs" must be a number when provided.');
+    }
+    overrides.turnTimeoutMs = root.turnTimeoutMs;
   }
 
   return overrides;

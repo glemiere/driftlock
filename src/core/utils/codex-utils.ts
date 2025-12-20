@@ -216,3 +216,28 @@ export function parseJsonSafe(text: string | null): unknown | undefined {
     return undefined;
   }
 }
+
+export function createTurnTimeout(timeoutMs?: number): {
+  signal?: AbortSignal;
+  clear: () => void;
+  didTimeout: () => boolean;
+  timeoutMs?: number;
+} {
+  if (!timeoutMs || timeoutMs <= 0) {
+    return { signal: undefined, clear: () => {}, didTimeout: () => false, timeoutMs };
+  }
+
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer),
+    didTimeout: () => timedOut,
+    timeoutMs,
+  };
+}

@@ -75,6 +75,7 @@ async function runExecutor(args: {
   coreContext?: string | null;
   excludePaths: string[];
   additionalContext: string;
+  turnTimeoutMs?: number;
   auditorName: string;
   thread: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
@@ -89,6 +90,7 @@ async function runExecutor(args: {
     coreContext,
     excludePaths,
     additionalContext,
+    turnTimeoutMs,
     auditorName,
     thread,
   } = args;
@@ -103,6 +105,7 @@ async function runExecutor(args: {
     schemaPath,
     coreContext,
     excludePaths,
+    turnTimeoutMs,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
     thread,
@@ -141,6 +144,7 @@ async function runExecuteStepValidator(args: {
   executeStepValidatorModel?: string;
   executeStepValidatorReasoning?: ReasoningEffort;
   validateSchemaPath?: string;
+  turnTimeoutMs?: number;
   thread: ExecutorThread | null;
 }): Promise<StepPhaseResult> {
   const {
@@ -154,6 +158,7 @@ async function runExecuteStepValidator(args: {
     executeStepValidatorModel,
     executeStepValidatorReasoning,
     validateSchemaPath,
+    turnTimeoutMs,
     thread,
   } = args;
 
@@ -175,6 +180,7 @@ async function runExecuteStepValidator(args: {
     reasoning: executeStepValidatorReasoning,
     workingDirectory,
     coreContext,
+    turnTimeoutMs,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
   });
@@ -221,6 +227,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     coreContext,
     excludePaths,
     additionalContext,
+    turnTimeoutMs,
     auditorName,
     tracker,
     executeStepValidatorPath,
@@ -247,6 +254,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     coreContext,
     excludePaths,
     additionalContext,
+    turnTimeoutMs,
     auditorName,
     thread,
   });
@@ -265,6 +273,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     executeStepValidatorModel,
     executeStepValidatorReasoning,
     validateSchemaPath,
+    turnTimeoutMs,
     thread: execution.thread ?? null,
   });
   if (validation.kind !== "proceed") {

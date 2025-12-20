@@ -353,6 +353,7 @@ async function runRegressionForStep(args: {
       excludePaths,
       workingDirectory: cwd,
       additionalContext,
+      turnTimeoutMs: config.turnTimeoutMs,
       tracker,
       executeStepValidatorPath: config.validators["execute-step"]?.path,
       executeStepValidatorModel: resolveValidatorModel(config, auditorName, "execute-step"),
@@ -477,6 +478,7 @@ function createStepRuntime(args: {
       resolveValidatorReasoning(args.config, args.auditorName, "execute-step"),
     cwd,
     excludePaths: args.config.exclude,
+    turnTimeoutMs: args.config.turnTimeoutMs,
     condense: createTestFailureCondenser(args.config, args.auditorName, cwd),
   };
 }
@@ -575,6 +577,7 @@ async function performApplyPhase(
     excludePaths: runtime.excludePaths,
     workingDirectory: runtime.cwd,
     additionalContext: state.additionalContext,
+    turnTimeoutMs: runtime.turnTimeoutMs,
     tracker: state.tracker,
     executeStepValidatorPath: runtime.executeStepValidatorPath,
     executeStepValidatorModel: runtime.executeStepValidatorModel,
@@ -762,6 +765,7 @@ async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetch
       planFormatter: context.planFormatter,
       planSchema: context.planSchema,
       workingDirectory: process.cwd(),
+      turnTimeoutMs: config.turnTimeoutMs,
       onEvent: (text) => tui.logRight(text),
       onInfo: (text) => tui.logLeft(text),
     });
@@ -804,6 +808,7 @@ async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> 
     reasoning: resolveValidatorReasoning(config, auditorName, validatorName),
     excludePaths: config.exclude,
     workingDirectory: process.cwd(),
+    turnTimeoutMs: config.turnTimeoutMs,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
   });
@@ -882,6 +887,7 @@ async function validateStepPhase(args: {
     model: validatorModel,
     reasoning: validatorReasoning,
     workingDirectory: cwd,
+    turnTimeoutMs: config.turnTimeoutMs,
     onEvent: (text) => tui.logRight(text),
     onInfo: (text) => tui.logLeft(text),
   });

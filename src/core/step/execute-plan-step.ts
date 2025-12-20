@@ -4,6 +4,7 @@ import type { ReasoningEffort } from "../config-loader";
 import {
   combinePrompts,
   combineWithCoreContext,
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -28,6 +29,7 @@ export type ExecutePlanStepOptions = {
   schemaPath: string;
   coreContext?: string | null;
   excludePaths?: string[];
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
   thread?: ExecutorThread | null;
@@ -62,6 +64,7 @@ export async function executePlanStep(
     schemaPath,
     excludePaths = [],
     coreContext,
+    turnTimeoutMs,
     onEvent,
     onInfo,
     thread: providedThread,
@@ -115,6 +118,7 @@ export async function executePlanStep(
       combinedPrompt,
       outputSchema,
       mode,
+      turnTimeoutMs,
       onEvent
     );
 
@@ -142,24 +146,38 @@ async function streamExecutorEvents(
   prompt: string,
   outputSchema: unknown,
   mode: StepMode,
+  turnTimeoutMs?: number,
   onEvent?: (formatted: string, colorKey?: string) => void
 ): Promise<{ latestAgentMessage: string | null }> {
-  const { events } = await runStreamed(prompt, { outputSchema });
-  let latestAgentMessage: string | null = null;
+  const timeout = createTurnTimeout(turnTimeoutMs);
+  try {
+    const { events } = await runStreamed(prompt, {
+      outputSchema,
+      ...(timeout.signal ? { signal: timeout.signal } : {}),
+    });
+    let latestAgentMessage: string | null = null;
 
-  for await (const event of events) {
-    const formatted = formatEvent(`execute-step:${mode}`, event);
-    if (formatted && onEvent) {
-      onEvent(formatted);
+    for await (const event of events) {
+      const formatted = formatEvent(`execute-step:${mode}`, event);
+      if (formatted && onEvent) {
+        onEvent(formatted);
+      }
+
+      const text = extractAgentText(event);
+      if (text) {
+        latestAgentMessage = text;
+      }
     }
 
-    const text = extractAgentText(event);
-    if (text) {
-      latestAgentMessage = text;
+    return { latestAgentMessage };
+  } catch (error) {
+    if (timeout.didTimeout() && timeout.timeoutMs) {
+      throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
     }
+    throw error;
+  } finally {
+    timeout.clear();
   }
-
-  return { latestAgentMessage };
 }
 
 function enforceExcludes(

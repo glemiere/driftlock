@@ -87,6 +87,7 @@ export async function runAuditCommand(
         workingDirectory: cwd,
         formatterPath: config.pullRequest.formatter.path,
         schemaPath: config.pullRequest.formatter.schema,
+        turnTimeoutMs: config.turnTimeoutMs,
         branch: gitContext.branch,
         baseBranch: gitContext.originalBranch,
         committedPlans: outcome.committedPlans,

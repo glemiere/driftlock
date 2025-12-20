@@ -3,6 +3,7 @@ import { readJsonFile, readTextFile } from "../../utils/fs";
 import { validateAgainstSchema } from "../../utils/schema-validator";
 import type { ReasoningEffort } from "../config-loader";
 import {
+  createTurnTimeout,
   dynamicImport,
   extractAgentText,
   formatCodexError,
@@ -21,6 +22,7 @@ export type ValidatePlanOptions = {
   reasoning?: ReasoningEffort;
   workingDirectory: string;
   excludePaths?: string[];
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -42,6 +44,7 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
     reasoning,
     workingDirectory,
     excludePaths = [],
+    turnTimeoutMs,
     onEvent,
     onInfo,
   } = options;
@@ -83,6 +86,7 @@ export async function validatePlan(options: ValidatePlanOptions): Promise<Valida
     model,
     reasoning,
     workingDirectory,
+    turnTimeoutMs,
     onEvent,
     onInfo,
   });
@@ -120,6 +124,7 @@ type RunValidatorArgs = {
   model: string;
   reasoning?: ReasoningEffort;
   workingDirectory: string;
+  turnTimeoutMs?: number;
   onEvent?: (formatted: string) => void;
   onInfo?: (message: string) => void;
 };
@@ -134,6 +139,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
     model,
     reasoning,
     workingDirectory,
+    turnTimeoutMs,
     onEvent,
     onInfo,
   } = args;
@@ -157,6 +163,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
       combinedPrompt,
       validateSchema,
       `${auditorName} → ${validatorName}`,
+      turnTimeoutMs,
       onEvent
     );
 
@@ -254,30 +261,42 @@ async function collectValidationResult(
   prompt: string,
   schema: unknown,
   contextLabel: string,
+  turnTimeoutMs?: number,
   onEvent?: (formatted: string, colorKey?: string) => void
 ): Promise<ValidatePlanResult | null> {
-  const { events } = await runStreamed(prompt, {
-    outputSchema: schema,
-  });
+  const timeout = createTurnTimeout(turnTimeoutMs);
+  try {
+    const { events } = await runStreamed(prompt, {
+      outputSchema: schema,
+      ...(timeout.signal ? { signal: timeout.signal } : {}),
+    });
 
-  let result: ValidatePlanResult | null = null;
+    let result: ValidatePlanResult | null = null;
 
-  for await (const event of events) {
-    const formatted = formatEvent(contextLabel, event);
-    if (formatted && onEvent) {
-      onEvent(formatted, formatted);
-    }
+    for await (const event of events) {
+      const formatted = formatEvent(contextLabel, event);
+      if (formatted && onEvent) {
+        onEvent(formatted, formatted);
+      }
 
-    const text = extractAgentText(event);
-    if (text && result === null) {
-      const parsed = parseValidationResult(text);
-      if (parsed) {
-        result = parsed;
+      const text = extractAgentText(event);
+      if (text && result === null) {
+        const parsed = parseValidationResult(text);
+        if (parsed) {
+          result = parsed;
+        }
       }
     }
-  }
 
-  return result;
+    return result;
+  } catch (error) {
+    if (timeout.didTimeout() && timeout.timeoutMs) {
+      throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);
+    }
+    throw error;
+  } finally {
+    timeout.clear();
+  }
 }
 
 function buildValidationPrompt(validatorPrompt: string, plan: unknown): string {
