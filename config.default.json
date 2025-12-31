@@ -5,13 +5,15 @@
   "qualityGate": {
     "build": { "enabled": true, "run": "npm run build" },
     "lint": { "enabled": true, "run": "npm run lint" },
-    "test": { "enabled": true, "run": "npm run test" }
+    "test": { "enabled": true, "run": "npm run test" },
+    "lintAutoFix": null
   },
   "runBaselineQualityGate": true,
-  "maxValidationRetries": 1,
-  "maxRegressionAttempts": 10,
-  "maxThreadLifetimeAttempts": 30,
-  "turnTimeoutMs": 600000,
+  "maxPlanRetries": 3,
+  "maxValidationRetries": 2,
+  "maxRegressionAttempts": 25,
+  "maxThreadLifetimeAttempts": 100,
+  "turnTimeoutMs": 1200000,
   "pullRequest": {
     "enabled": true,
     "gitHostSaas": "github",
@@ -115,9 +117,8 @@
       "path": "./assets/formatters/execute-step.md",
       "schema": "./assets/schemas/execute-step.schema.json",
       "model": "gpt-5.2-codex",
-      "fixRegressionModel": "gpt-5.2-codex",
-      "reasoning": "medium",
-      "fixRegressionReasoning": "low"
+      "fixRegressionPath": "./assets/formatters/execute-step-regression.md",
+      "reasoning": "medium"
     },
     "testFailureSummary": {
       "path": "./assets/sanitazors/quality-tests.md",

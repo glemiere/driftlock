@@ -48,8 +48,7 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.formatters.plan.schema)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.schema)).toBe(true);
-    expect(typeof config.formatters.executeStep.fixRegressionModel).toBe("string");
-    expect(typeof config.formatters.executeStep.fixRegressionReasoning).toBe("string");
+    expect(path.isAbsolute(config.formatters.executeStep.fixRegressionPath as string)).toBe(true);
     expect(path.isAbsolute(config.formatters.testFailureSummary.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.testFailureSummary.schema)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
@@ -65,6 +64,7 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.pullRequest.formatter.schema)).toBe(true);
     expect(typeof config.pullRequest.formatter.model).toBe("string");
     expect(typeof config.pullRequest.formatter.reasoning).toBe("string");
+    expect(typeof config.maxPlanRetries).toBe("number");
     expect(typeof config.maxValidationRetries).toBe("number");
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");

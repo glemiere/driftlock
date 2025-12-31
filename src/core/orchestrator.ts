@@ -131,19 +131,60 @@ async function runSingleAuditor(
   const auditor = config.auditors[auditorName];
   if (!auditor || !auditor.enabled) return { status: "no-plan" };
 
-  const planResult = await generatePlanForAuditor({
-    auditorName,
-    auditorPath: auditor.path,
-    config,
-    context,
-  });
-  if (planResult.status === "noop") return { status: "no-plan" };
-  if (planResult.status === "error") return { status: "failed" };
+  const maxPlanRetries = Math.max(0, Math.floor(config.maxPlanRetries));
+  const maxPlanAttempts = maxPlanRetries + 1;
+  let plan: PlanResult | null = null;
+  let planThread: import("./plan/build-plan").PlanThread | null = null;
+  let revision: import("./plan/build-plan").PlanRevisionContext | null = null;
 
-  const plan = planResult.plan;
+  for (let attempt = 1; attempt <= maxPlanAttempts; attempt += 1) {
+    if (attempt > 1) {
+      tui.logLeft(
+        `[${auditorName}] regenerating plan after rejection (${attempt}/${maxPlanAttempts}).`,
+        "warn"
+      );
+    }
 
-  const isValid = await validatePlanForAuditor({ auditorName, plan, config, context });
-  if (!isValid) return { status: "failed" };
+    const planResult = await generatePlanForAuditor({
+      auditorName,
+      auditorPath: auditor.path,
+      config,
+      context,
+      thread: planThread,
+      revision: revision ?? undefined,
+    });
+    if (planResult.thread) {
+      planThread = planResult.thread;
+    }
+    if (planResult.status === "noop") return { status: "no-plan" };
+    if (planResult.status === "error") return { status: "failed" };
+
+    const validation = await validatePlanForAuditor({
+      auditorName,
+      plan: planResult.plan,
+      config,
+      context,
+    });
+
+    if (validation.valid) {
+      plan = planResult.plan;
+      break;
+    }
+    revision = {
+      previousPlan: planResult.plan,
+      rejectionReason: validation.reason,
+    };
+
+    if (attempt === maxPlanAttempts) {
+      tui.logLeft(
+        `[${auditorName}] plan rejected after ${maxPlanAttempts} attempt(s); skipping auditor.`,
+        "error"
+      );
+      return { status: "failed" };
+    }
+  }
+
+  if (!plan) return { status: "failed" };
 
   logPlan(auditorName, plan);
   const parsedPlan = parsePlan(plan);
@@ -164,6 +205,28 @@ async function runSingleAuditor(
   for (const item of parsedPlan.plan) {
     const executed = await executePlanItem(item, runtime);
     if (!executed) {
+      await safeRollback(runtime.cwd, auditorName);
+      return { status: "failed" };
+    }
+  }
+
+  const gateDisabled = checkQualityGateDisabled({
+    build: config.qualityGate.build,
+    lint: config.qualityGate.lint,
+    test: config.qualityGate.test,
+  });
+  if (!gateDisabled) {
+    const finalGate = await runStepQualityGate({
+      auditorName,
+      stepLabel: "final quality gate (pre-commit)",
+      config,
+      cwd: runtime.cwd,
+      onCondenseTestFailure: runtime.condense,
+      maxAttempts: config.maxValidationRetries,
+    });
+    if (!finalGate.passed) {
+      const message = finalGate.additionalContext || "build/lint/test failed";
+      tui.logLeft(`[${auditorName}] final quality gate failed: ${message}`, "error");
       await safeRollback(runtime.cwd, auditorName);
       return { status: "failed" };
     }
@@ -214,6 +277,8 @@ async function createPlanContext(config: DriftlockConfig): Promise<PlanContext> 
   const validateSchemaPath = assetsPath("schemas", "validate-plan.schema.json");
 
   const executeFormatterPath = config.formatters.executeStep.path;
+  const executeRegressionFormatterPath =
+    config.formatters.executeStep.fixRegressionPath ?? executeFormatterPath;
   const executeSchemaPath = config.formatters.executeStep.schema;
   const validateStepSchemaPath = assetsPath("schemas", "validate-plan.schema.json");
   const coreContextPath = assetsPath("context", "driftlock-core.md");
@@ -229,6 +294,7 @@ async function createPlanContext(config: DriftlockConfig): Promise<PlanContext> 
     planSchema,
     validateSchemaPath,
     executeFormatterPath,
+    executeRegressionFormatterPath,
     executeSchemaPath,
     validateStepSchemaPath,
     coreContext,
@@ -271,11 +337,12 @@ async function runStepQualityGate(args: {
   cwd: string;
   onCondenseTestFailure?: (stdout: string, stderr: string) => Promise<string | undefined>;
   maxAttempts?: number;
+  touchedFiles?: string[];
 }): Promise<StepQualityGateResult> {
-  const { auditorName, stepLabel, config, cwd, onCondenseTestFailure } = args;
+  const { auditorName, stepLabel, config, cwd, onCondenseTestFailure, touchedFiles } = args;
 
   tui.logLeft(`[${auditorName}] quality gate for ${stepLabel}`, "accent");
-  const stages = createQualityStages({ config, cwd, onCondenseTestFailure });
+  const stages = createQualityStages({ config, cwd, onCondenseTestFailure, touchedFiles });
   const configuredMaxAttempts =
     typeof args.maxAttempts === "number" ? args.maxAttempts : config.maxValidationRetries;
   const requiredPasses = Math.max(configuredMaxAttempts || 1, 1);
@@ -347,7 +414,7 @@ async function runRegressionForStep(args: {
       mode: "fix_regression",
       model,
       reasoning,
-      formatterPath: context.executeFormatterPath,
+      formatterPath: context.executeRegressionFormatterPath,
       schemaPath: context.executeSchemaPath,
       coreContext: context.coreContext,
       excludePaths,
@@ -417,6 +484,7 @@ async function runRegressionForStep(args: {
       config,
       cwd,
       onCondenseTestFailure: condense,
+      touchedFiles: collectTouchedFiles(execPhase.execution),
     });
 
     if (gate.passed) {
@@ -544,7 +612,7 @@ async function runStepPipeline(
   if (validationDecision === "completed") return { success: true, execution: lastExecution };
   if (validationPhase.kind !== "proceed") return { success: false };
 
-  const gateSuccess = await enforceQualityGate(step, runtime, state);
+  const gateSuccess = await enforceQualityGate(step, runtime, state, lastExecution);
   return { success: gateSuccess, execution: lastExecution };
 }
 
@@ -654,11 +722,13 @@ async function handlePhaseDecision(args: {
 async function enforceQualityGate(
   step: StepDetails,
   runtime: StepRuntime,
-  state: StepExecutionState
+  state: StepExecutionState,
+  lastExecution?: ExecutePlanStepResult
 ): Promise<boolean> {
   const gateOutcome = await evaluateQualityGate({
     runtime,
     displayStep: step.displayStep,
+    touchedFiles: collectTouchedFiles(lastExecution),
   });
 
   if (gateOutcome.status === "passed") {
@@ -712,8 +782,9 @@ async function triggerRegression(
 async function evaluateQualityGate(args: {
   runtime: StepRuntime;
   displayStep: string;
+  touchedFiles?: string[];
 }): Promise<{ status: "passed" } | { status: "failed"; additionalContext: string }> {
-  const { runtime, displayStep } = args;
+  const { runtime, displayStep, touchedFiles } = args;
 
   const qualityDisabled = checkQualityGateDisabled({
     build: runtime.config.qualityGate.build,
@@ -734,6 +805,7 @@ async function evaluateQualityGate(args: {
     config: runtime.config,
     cwd: runtime.cwd,
     onCondenseTestFailure: runtime.condense,
+    touchedFiles,
   });
 
   if (gate.passed) {
@@ -747,17 +819,17 @@ async function evaluateQualityGate(args: {
 }
 
 type PlanFetchResult =
-  | { status: "success"; plan: PlanResult }
-  | { status: "noop" }
-  | { status: "error" };
+  | { status: "success"; plan: PlanResult; thread: import("./plan/build-plan").PlanThread | null }
+  | { status: "noop"; thread?: import("./plan/build-plan").PlanThread | null }
+  | { status: "error"; thread?: import("./plan/build-plan").PlanThread | null };
 
 async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetchResult> {
-  const { auditorName, auditorPath, config, context } = args;
+  const { auditorName, auditorPath, config, context, thread, revision } = args;
   const model = resolveAuditorModel(config, auditorName);
   const reasoning = resolveAuditorReasoning(config, auditorName);
 
   try {
-    const plan = await buildPlan({
+    const { plan, thread: usedThread } = await buildPlan({
       auditorName,
       auditorPath,
       model,
@@ -768,33 +840,37 @@ async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetch
       turnTimeoutMs: config.turnTimeoutMs,
       onEvent: (text) => tui.logRight(text),
       onInfo: (text) => tui.logLeft(text),
+      thread: thread ?? null,
+      revision,
     });
 
     if (plan && isNoopPlan(plan)) {
       const reason = plan.reason ?? "No changes required";
       tui.logLeft(`[${auditorName}] no work: ${reason}`, "warn");
-      return { status: "noop" };
+      return { status: "noop", thread: usedThread };
     }
 
     if (!plan) {
-      return { status: "error" };
+      return { status: "error", thread: usedThread };
     }
 
-    return { status: "success", plan };
+    return { status: "success", plan, thread: usedThread };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     tui.logLeft(`[${auditorName}] plan generation failed: ${message}`, "error");
-    return { status: "error" };
+    return { status: "error", thread };
   }
 }
 
-async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> {
+async function validatePlanForAuditor(
+  args: ValidatePlanArgs
+): Promise<{ valid: boolean; reason?: string }> {
   const { auditorName, plan, config, context } = args;
   const validatorName = "plan";
   const validator = config.validators[validatorName];
   if (!validator) {
     tui.logLeft(`[${auditorName}] missing validator "${validatorName}"`, "error");
-    return false;
+    return { valid: false, reason: `Missing validator "${validatorName}".` };
   }
 
   const validation = await validatePlan({
@@ -825,10 +901,10 @@ async function validatePlanForAuditor(args: ValidatePlanArgs): Promise<boolean> 
         }
       })();
     tui.logLeft(`[${auditorName}] rejected plan content:\n${prettyPlan}`, "warn");
-    return false;
+    return { valid: false, reason };
   }
 
-  return true;
+  return { valid: true };
 }
 
 async function validateStepPhase(args: {
@@ -893,13 +969,14 @@ async function validateStepPhase(args: {
   });
 
   if (!stepValidation.valid) {
+    const reason = stepValidation.reason || "unknown";
     tui.logLeft(
-      `[${auditorName}] step validation failed (${mode}): ${stepValidation.reason || "unknown"}`,
+      `[${auditorName}] step validation failed (${mode}): ${reason}`,
       "warn"
     );
     return {
       kind: "retry",
-      additionalContext: `Step validation failed: ${stepValidation.reason || "unknown"}`,
+      additionalContext: `Step validation failed: ${reason}`,
       thread: thread ?? null,
     };
   }
@@ -916,6 +993,11 @@ function shouldAbortRegression(
     typeof config.maxRegressionAttempts === "number" && config.maxRegressionAttempts > 0;
   const exceededRegressionCap = hasRegressionCap && regressionAttempts > config.maxRegressionAttempts;
   return exceededRegressionCap || tracker.isExhausted();
+}
+
+function collectTouchedFiles(execution?: ExecutePlanStepResult): string[] {
+  if (!execution) return [];
+  return Array.from(collectFiles(execution));
 }
 
 function buildStepPromptWithContext(stepText: string, item: PlanItem): string {

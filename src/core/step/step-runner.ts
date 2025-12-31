@@ -61,6 +61,30 @@ function handleExecutorFailure(
     return { kind: "abort" };
   }
 
+  if (mode === "fix_regression") {
+    const nonRetryablePhrases = [
+      "out of scope",
+      "outside scope",
+      "outside the scope",
+      "scope limit",
+      "scope limits",
+      "not allowed",
+      "cannot resolve",
+      "cannot modify",
+      "cannot touch",
+      "cannot edit",
+      "unable to resolve",
+      "requires changes in",
+      "requires changes to",
+    ];
+    const nonRetryable = nonRetryablePhrases.some((phrase) =>
+      summaryLower.includes(phrase)
+    );
+    if (nonRetryable) {
+      return { kind: "abort" };
+    }
+  }
+
   return { kind: "retry", additionalContext: result.summary || "executor failed" };
 }
 

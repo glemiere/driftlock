@@ -125,8 +125,6 @@ async function collectValidationResult(
       ...(timeout.signal ? { signal: timeout.signal } : {}),
     });
 
-    let result: ValidateStepResult | null = null;
-
     for await (const event of events) {
       const formatted = formatEvent(contextLabel, event);
       if (formatted && onEvent) {
@@ -134,19 +132,18 @@ async function collectValidationResult(
       }
 
       const text = extractAgentText(event);
-      if (text && result === null) {
+      if (text) {
         try {
           const parsed = JSON.parse(text) as Partial<ValidateStepResult>;
           if (typeof parsed.valid === "boolean") {
-            result = { valid: parsed.valid, reason: parsed.reason };
+            return { valid: parsed.valid, reason: parsed.reason };
           }
         } catch {
           // ignore parse errors; continue to next event
         }
       }
     }
-
-    return result;
+    return null;
   } catch (error) {
     if (timeout.didTimeout() && timeout.timeoutMs) {
       throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);

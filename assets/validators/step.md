@@ -29,6 +29,13 @@ When in doubt, reject with a concise reason suitable to feed back into `fix_regr
 
 ---
 
+## Scope Clarification
+
+If the step description includes a `PlanItemContext` block with a `FilesInvolved:` list, treat those paths as **explicitly allowed scope** for this step in both apply and fix_regression. Do **not** reject a patch as “extra file touched” if the file appears in `FilesInvolved`, even if not mentioned elsewhere in the step text.
+Do **not** reject solely because a patch hunk context does not match `codeSnapshots` or because the patch text looks malformed/truncated; treat patch divergence as non-blocking and let the quality gate determine correctness.
+
+---
+
 ## Hard Rejection Rules
 
 Reject (`valid: false`) if any apply:
@@ -37,38 +44,25 @@ Reject (`valid: false`) if any apply:
    - `mode` is not `"apply"` or `"fix_regression"`.
    - Required executor fields are missing or malformed.
 
-3) **Patch/Metadata Incoherence**
-   - `success: true` but `patch`/`filesWritten`/`filesTouched` are missing, empty, or inconsistent.
-   - `success: false` but a non-empty patch or non-empty `filesWritten` is present.
-   - Patch modifies files not listed in `filesWritten`.
-   - Patch is malformed (missing diff headers/hunks) or zero-impact (no `+`/`-` lines) when `success: true`.
+2) **Missing Execution Metadata**
+   - `success: true` but `filesWritten` or `filesTouched` are missing or empty.
+   - `success: false` but a non-empty `filesWritten` is present.
 
-4) **Apply Mode: Step Not Implemented**
+3) **Apply Mode: Step Not Implemented**
    - In `mode: "apply"` with `success: true`, the patch does **not** implement the step description:
      - missing required additions/removals/renames/extractions,
      - only superficial edits,
      - partial or symbolic changes that leave the intent unfulfilled.
    - The patch removes or hides exported/public helpers, types, or symbols that are referenced in the provided snapshots (tests/fixtures) without replacing them with compatible equivalents. Do not accept “refactors” that break existing entry points.
 
-5) **Fix Regression: Behavior Reversal or Overreach**
+4) **Fix Regression: Behavior Reversal or Overreach**
    - In `mode: "fix_regression"`, the patch:
      - undoes or negates the original step instead of narrowly fixing regressions, or
      - expands into unrelated files or code paths not previously touched by this step, in an attempt to “fix” noisy/flaky failures.
    - In `mode: "fix_regression"`, the patch is rejected if it attempts to reimplement the entire step from scratch instead of addressing the specific regression. It should be a targeted fix that restores missing symbols/behavior or corrects the failing paths noted in the prompt.
 
-6) **Unverifiable or Unrelated Changes**
-   - Patch touches files or code not described in the step.
-   - Patch content conflicts with the provided `codeSnapshots` (e.g., applies to mismatched context).
-
-7) **Context Alignment Failure (Patch Must Match Actual Code)**
-   Reject when:
-   - any hunk’s context lines do not appear in `codeSnapshots` for the corresponding file,
-   - the patch attempts to modify code regions that do not exist in the file,
-   - the symbols/functions/blocks described in the step cannot be found in the provided snapshots,
-   - the patch introduces or removes code in hallucinated regions that do not match the real file structure,
-   - file offsets or targeted sections would not apply cleanly to the actual content.
-
-   The patch must align with real code, not imagined or mismatched context.
+5) **Unverifiable or Unrelated Changes**
+   - Patch touches files or code not described in the step **and** not listed in `PlanItemContext.FilesInvolved`.
 
 ---
 
@@ -76,7 +70,7 @@ Reject (`valid: false`) if any apply:
 
 Approve (`valid: true`) when:
 - All touched/written files are declared, not excluded, and align with the step intent.
-- Patch is small, well-formed, and coherent with metadata.
+- Patch text may be malformed; rely on `filesWritten`/`filesTouched` plus the snapshots to judge intent.
 - Apply mode: the requested transformation is fully reflected in the patch, without breaking existing exported helpers/types relied on by the current code/tests.
 - Fix_regression mode: the patch is narrowly targeted to the regression (restore missing symbols, adjust the failing paths) without undoing the step or widening scope.
 - `summary` is concise and reusable in future prompts.

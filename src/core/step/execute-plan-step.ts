@@ -166,6 +166,15 @@ async function streamExecutorEvents(
       const text = extractAgentText(event);
       if (text) {
         latestAgentMessage = text;
+        const parsed = parseJsonSafe(text) as Partial<ExecutePlanStepResult> | undefined;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          typeof parsed.success === "boolean" &&
+          typeof parsed.mode === "string"
+        ) {
+          return { latestAgentMessage: text };
+        }
       }
     }
 

@@ -50,7 +50,7 @@ describe("buildPlan", () => {
   });
 
   it("binds runStreamed to the thread context and returns parsed JSON", async () => {
-    const result = await buildPlan({
+    const { plan, thread } = await buildPlan({
       auditorName: "doc",
       auditorPath,
       planFormatter,
@@ -59,7 +59,8 @@ describe("buildPlan", () => {
       workingDirectory: process.cwd(),
     });
 
-    expect(result).toEqual({ name: "noop", plan: [], noop: true, reason: "noop" });
+    expect(plan).toEqual({ name: "noop", plan: [], noop: true, reason: "noop" });
+    expect(thread).toBeTruthy();
     expect(mockRunStreamed).toHaveBeenCalledTimes(1);
   });
 });

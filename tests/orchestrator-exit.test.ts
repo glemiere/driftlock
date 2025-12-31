@@ -32,6 +32,10 @@ jest.mock("../src/core/git/git-manager", () => ({
 }));
 
 describe("runAuditLoop exit behavior", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("records the last committed plan before honoring a queued exit request", async () => {
     const { tui } = await import("../src/cli/tui");
     const { buildPlan } = await import("../src/core/plan/build-plan");
@@ -44,8 +48,11 @@ describe("runAuditLoop exit behavior", () => {
       .mockImplementationOnce(() => true);
 
     (buildPlan as jest.Mock).mockResolvedValue({
-      name: "complexity: synthetic plan",
-      plan: [{ action: "noop-but-committed", steps: [] }],
+      plan: {
+        name: "complexity: synthetic plan",
+        plan: [{ action: "noop-but-committed", steps: [] }],
+      },
+      thread: null,
     });
 
     (validatePlan as jest.Mock).mockResolvedValue({ valid: true });
@@ -86,8 +93,10 @@ describe("runAuditLoop exit behavior", () => {
         build: { enabled: false, run: "true" },
         lint: { enabled: false, run: "true" },
         test: { enabled: false, run: "true" },
+        lintAutoFix: null,
       },
       runBaselineQualityGate: false,
+      maxPlanRetries: 1,
       maxValidationRetries: 1,
       maxRegressionAttempts: 1,
       maxThreadLifetimeAttempts: 1,
@@ -106,6 +115,94 @@ describe("runAuditLoop exit behavior", () => {
 
     const result = await runAuditLoop(["complexity"], config, { branch: "driftlock/test" });
     expect(result.exitReason).toBe("user_exit");
+    expect(result.committedPlans).toHaveLength(1);
+  });
+
+  it("regenerates a plan after rejection before moving on", async () => {
+    const { tui } = await import("../src/cli/tui");
+    const { buildPlan } = await import("../src/core/plan/build-plan");
+    const { validatePlan } = await import("../src/core/plan/validate-plan");
+    const { commitPlanChanges, pushBranch } = await import("../src/core/git/git-manager");
+    const { runAuditLoop } = await import("../src/core/orchestrator");
+
+    (tui.isExitRequested as jest.Mock)
+      .mockImplementationOnce(() => false)
+      .mockImplementationOnce(() => true);
+
+    (buildPlan as jest.Mock).mockResolvedValue({
+      plan: {
+        name: "retry plan",
+        plan: [{ action: "noop-but-committed", steps: [] }],
+      },
+      thread: null,
+    });
+
+    (validatePlan as jest.Mock)
+      .mockResolvedValueOnce({ valid: false, reason: "plan too vague" })
+      .mockResolvedValueOnce({ valid: true });
+
+    (commitPlanChanges as jest.Mock).mockResolvedValue(true);
+    (pushBranch as jest.Mock).mockResolvedValue(true);
+
+    const cwd = process.cwd();
+    const asset = (...segments: string[]) => path.resolve(cwd, ...segments);
+
+    const config: DriftlockConfig = {
+      auditors: {
+        complexity: {
+          enabled: true,
+          path: asset("assets", "auditors", "complexity.md"),
+          validators: ["plan"],
+        },
+      },
+      validators: {
+        plan: { path: asset("assets", "validators", "plan.md") },
+        "execute-step": { path: asset("assets", "validators", "execute-step.md") },
+        step: { path: asset("assets", "validators", "step.md") },
+      },
+      formatters: {
+        plan: {
+          path: asset("assets", "formatters", "plan.md"),
+          schema: asset("assets", "schemas", "plan.schema.json"),
+        },
+        executeStep: {
+          path: asset("assets", "formatters", "execute-step.md"),
+          schema: asset("assets", "schemas", "execute-step.schema.json"),
+        },
+        testFailureSummary: {
+          path: asset("assets", "sanitazors", "quality-tests.md"),
+          schema: asset("assets", "schemas", "test-failure-summary.schema.json"),
+        },
+      },
+      qualityGate: {
+        build: { enabled: false, run: "true" },
+        lint: { enabled: false, run: "true" },
+        test: { enabled: false, run: "true" },
+        lintAutoFix: null,
+      },
+      runBaselineQualityGate: false,
+      maxPlanRetries: 1,
+      maxValidationRetries: 1,
+      maxRegressionAttempts: 1,
+      maxThreadLifetimeAttempts: 1,
+      pullRequest: {
+        enabled: false,
+        gitHostSaas: "github",
+        formatter: {
+          path: asset("assets", "formatters", "pull-request.md"),
+          schema: asset("assets", "schemas", "pull-request.schema.json"),
+        },
+      },
+      exclude: [],
+      model: "gpt-5.1-codex-mini",
+      reasoning: "low",
+    };
+
+    const result = await runAuditLoop(["complexity"], config, { branch: "driftlock/test" });
+
+    expect(buildPlan).toHaveBeenCalledTimes(2);
+    expect(validatePlan).toHaveBeenCalledTimes(2);
+    expect(commitPlanChanges).toHaveBeenCalledTimes(1);
     expect(result.committedPlans).toHaveLength(1);
   });
 });

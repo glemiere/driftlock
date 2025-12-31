@@ -82,8 +82,6 @@ export async function summarizeTestFailures(options: {
         outputSchema: schema,
         ...(timeout.signal ? { signal: timeout.signal } : {}),
       });
-      let latest: TestFailureSummary | null = null;
-
       for await (const event of events) {
         const formatted = formatEvent("test-failure-condenser", event);
         if (formatted && onEvent) {
@@ -95,7 +93,7 @@ export async function summarizeTestFailures(options: {
           try {
             const parsed = JSON.parse(text) as Partial<TestFailureSummary>;
             if (typeof parsed.summary === "string") {
-              latest = {
+              return {
                 summary: parsed.summary,
                 failingTests: parsed.failingTests,
                 failingFiles: parsed.failingFiles,
@@ -109,7 +107,7 @@ export async function summarizeTestFailures(options: {
         }
       }
 
-      return latest;
+      return null;
     } catch (error) {
       if (timeout.didTimeout() && timeout.timeoutMs) {
         throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);

@@ -186,24 +186,6 @@ describe("config schema", () => {
     ).toThrow(/expected string/i);
   });
 
-  it("rejects fixRegressionModel when not string", () => {
-    const invalid = {
-      auditors: {},
-      validators: {},
-      formatters: {
-        ...minimalFormatters,
-        executeStep: {
-          ...minimalFormatters.executeStep,
-          fixRegressionModel: 123,
-        },
-      },
-    };
-
-    expect(() =>
-      validateAgainstSchema(invalid, configSchema, { schemaName })
-    ).toThrow(/expected string/i);
-  });
-
   it("rejects turnTimeoutMs when not number", () => {
     const invalid = {
       auditors: {},
@@ -230,24 +212,6 @@ describe("config schema", () => {
     ).toThrow(/must be one of/i);
   });
 
-  it("rejects fixRegressionReasoning when invalid", () => {
-    const invalid = {
-      auditors: {},
-      validators: {},
-      formatters: {
-        ...minimalFormatters,
-        executeStep: {
-          ...minimalFormatters.executeStep,
-          fixRegressionReasoning: "turbo",
-        },
-      },
-    };
-
-    expect(() =>
-      validateAgainstSchema(invalid, configSchema, { schemaName })
-    ).toThrow(/fixRegressionReasoning/i);
-  });
-
   it("allows partial user config when allowPartial is true", () => {
     const partial = {
       auditors: {
@@ -263,6 +227,7 @@ describe("config schema", () => {
         test: { enabled: true, run: "npm test" },
       },
       runBaselineQualityGate: true,
+      maxPlanRetries: 2,
       maxValidationRetries: 5,
       maxRegressionAttempts: 2,
       maxThreadLifetimeAttempts: 4,

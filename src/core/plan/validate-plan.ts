@@ -271,8 +271,6 @@ async function collectValidationResult(
       ...(timeout.signal ? { signal: timeout.signal } : {}),
     });
 
-    let result: ValidatePlanResult | null = null;
-
     for await (const event of events) {
       const formatted = formatEvent(contextLabel, event);
       if (formatted && onEvent) {
@@ -280,15 +278,14 @@ async function collectValidationResult(
       }
 
       const text = extractAgentText(event);
-      if (text && result === null) {
+      if (text) {
         const parsed = parseValidationResult(text);
         if (parsed) {
-          result = parsed;
+          return parsed;
         }
       }
     }
-
-    return result;
+    return null;
   } catch (error) {
     if (timeout.didTimeout() && timeout.timeoutMs) {
       throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);

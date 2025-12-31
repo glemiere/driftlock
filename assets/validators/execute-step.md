@@ -78,18 +78,16 @@ When `success` is `true`:
 
 - `patch` MUST be present and non-empty
 - `filesWritten` MUST be a non-empty array
-- every file in `filesWritten` MUST appear in the `patch` headers
 - `filesTouched` MUST be present and MUST contain all `filesWritten`
 
 If these invariants do not hold, reject.
 
 When `success` is `false`:
 
-- `patch` SHOULD be absent or empty
 - `filesWritten` SHOULD be empty or omitted
 - `summary` MUST clearly express the reason for failure
 
-If a failing result still contains a non-empty patch or a non-empty `filesWritten`, reject.
+If a failing result still contains a non-empty `filesWritten`, reject.
 
 ### 4. Behavior Reversal or Overreach in fix_regression
 
@@ -103,43 +101,11 @@ In `mode: "fix_regression"`:
 
 The executor may refine or correct the step, but not undo it unless the prompt explicitly instructs otherwise, and must keep changes tightly scoped to previously touched areas.
 
-### 5. Patch Must Not Modify Hidden or Undeclared Files
-
-Reject when:
-
-- the unified diff `patch` contains a file header (e.g., `diff --git a/... b/...`, `--- a/...`, `+++ b/...`) for a file **not** listed in `filesWritten`
-- the patch clearly affects more files than `filesWritten` reports
-
-The patch itself must not “hide” additional modified files; all modified files must be explicitly listed in `filesWritten` and must not be excluded or unrelated to the step.
-
-### 6. Malformed or Non-standard Patch Syntax
-
-Reject when the `patch` content is clearly malformed or missing standard unified diff structure, for example:
-
-- no file headers such as `diff --git ...`, or `---` / `+++` lines
-- no hunk markers such as `@@ ... @@`
-- obviously truncated or incomplete diff blocks
-
-You do not need to parse the patch perfectly.  
-Instead, apply a conservative rule: if the patch does not look like a standard unified diff that can be safely applied and rolled back, reject it.
-
+- Do not reject solely because the patch text is malformed, truncated, or diverges from the metadata; treat patch divergence as non-blocking and let the quality gate determine correctness.
 - Do not reject solely because the executor ran a targeted test suite; allow it when the step explicitly requires tests or a regression fix needs verification.
 - Reject if the executor runs broad build/lint/test cycles unrelated to the step intent.
 
-### 7. Zero-Impact Success Patches
-
-Reject when:
-
-- `success` is `true`, **and**
-- the `patch` does not introduce any added (`+`) or removed (`-`) lines in its hunks (i.e., only context lines or empty hunks).
-
-A patch that makes no actual changes cannot fix regressions and is usually misleading or hallucinated.  
-Executors must either:
-
-- provide a patch with real edits, or
-- report `success: false` with a clear reason.
-
-### 8. Step Not Implemented (Apply Mode Only)
+### 5. Step Not Implemented (Apply Mode Only)
 
 Applies only when:
 
@@ -168,9 +134,8 @@ Approve (`valid: true`) when:
 
 - `mode` is correct and consistent with the requested execution
 - all touched/written files are declared in `filesWritten`/`filesTouched` and not excluded
-- the patch is small, focused, and aligned with the step description
+- patch text may be malformed; rely on `filesWritten`/`filesTouched` and the step intent instead of diff structure
 - metadata is coherent:
-  - `success` matches the presence/absence of a patch
   - `summary` is concise and suitable for reuse in later prompts
 
 When in doubt, favor **conservatism**:

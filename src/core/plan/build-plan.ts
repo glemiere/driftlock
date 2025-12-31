@@ -13,6 +13,18 @@ import {
   parseJsonSafe,
 } from "../utils/codex-utils";
 
+type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStreamed;
+
+export type PlanThread = {
+  runStreamed: RunStreamed;
+  driftlock?: { model: string; reasoning?: ReasoningEffort };
+};
+
+export type PlanRevisionContext = {
+  previousPlan?: unknown;
+  rejectionReason?: string;
+};
+
 export type BuildPlanOptions = {
   auditorName: string;
   auditorPath: string;
@@ -25,9 +37,13 @@ export type BuildPlanOptions = {
   turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
+  thread?: PlanThread | null;
+  revision?: PlanRevisionContext;
 };
 
-export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
+export async function buildPlan(
+  options: BuildPlanOptions
+): Promise<{ plan: unknown; thread: PlanThread | null }> {
   const {
     auditorName,
     auditorPath,
@@ -40,9 +56,16 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
     turnTimeoutMs,
     onEvent,
     onInfo,
+    thread: providedThread,
+    revision,
   } = options;
 
-  const combinedPrompt = await loadCombinedPrompt(auditorPath, planFormatter, coreContext);
+  const combinedPrompt = await loadCombinedPrompt(
+    auditorPath,
+    planFormatter,
+    coreContext,
+    revision
+  );
   onInfo?.(
     `[${auditorName}] generating plan with model: ${model}${
       reasoning ? ` (reasoning: ${reasoning})` : ""
@@ -50,7 +73,21 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
   );
 
   try {
-    const thread = await startPlanThread(model, reasoning, workingDirectory);
+    const normalizedReasoning = normalizeModelReasoningEffort(model, reasoning);
+    let thread: PlanThread | null = providedThread ?? null;
+    const shouldStartNewThread =
+      !thread ||
+      thread.driftlock?.model !== model ||
+      thread.driftlock?.reasoning !== normalizedReasoning;
+
+    if (shouldStartNewThread) {
+      thread = await startPlanThread(model, normalizedReasoning, workingDirectory);
+      thread.driftlock = { model, reasoning: normalizedReasoning };
+    }
+    if (!thread) {
+      throw new Error("Failed to start Codex plan thread.");
+    }
+
     const { latestAgentMessage, finalLogged } = await streamPlanEvents(
       thread.runStreamed.bind(thread),
       combinedPrompt,
@@ -59,7 +96,8 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
       turnTimeoutMs,
       onEvent
     );
-    return finalizePlan(latestAgentMessage, finalLogged, auditorName, onEvent);
+    const plan = finalizePlan(latestAgentMessage, finalLogged, auditorName, onEvent);
+    return { plan, thread };
   } catch (error) {
     const message = formatCodexError(error);
     onInfo?.(`[${auditorName}] Codex error: ${message}`);
@@ -70,14 +108,15 @@ export async function buildPlan(options: BuildPlanOptions): Promise<unknown> {
 async function loadCombinedPrompt(
   auditorPath: string,
   planFormatter: string,
-  coreContext?: string | null
+  coreContext?: string | null,
+  revision?: PlanRevisionContext
 ): Promise<string> {
   const auditorPrompt = await readTextFile(auditorPath);
   const withFormatter = combinePrompts(auditorPrompt, planFormatter);
-  return combineWithCoreContext(coreContext ?? null, withFormatter);
+  const basePrompt = combineWithCoreContext(coreContext ?? null, withFormatter);
+  const revisionContext = buildRevisionContext(revision);
+  return revisionContext ? `${basePrompt}\n\n${revisionContext}` : basePrompt;
 }
-
-type RunStreamed = typeof import("@openai/codex-sdk").Thread.prototype.runStreamed;
 
 async function startPlanThread(
   model: string,
@@ -88,7 +127,7 @@ async function startPlanThread(
   const codex = new Codex();
   return codex.startThread({
     model,
-    modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
+    modelReasoningEffort: reasoning,
     workingDirectory,
     skipGitRepoCheck: true,
   });
@@ -123,6 +162,10 @@ async function streamPlanEvents(
         if (event.type === "item.completed" && event.item.type === "agent_message") {
           finalLogged = true;
         }
+        const parsed = parseJsonSafe(text);
+        if (parsed !== undefined) {
+          return { latestAgentMessage: text, finalLogged };
+        }
       }
     }
 
@@ -149,4 +192,23 @@ function finalizePlan(
 
   const parsed = parseJsonSafe(latestAgentMessage);
   return parsed ?? latestAgentMessage;
+}
+
+function buildRevisionContext(revision?: PlanRevisionContext): string | null {
+  if (!revision) return null;
+
+  const payload = JSON.stringify(
+    {
+      previousPlan: revision.previousPlan ?? null,
+      rejectionReason: revision.rejectionReason ?? null,
+    },
+    null,
+    2
+  );
+
+  return [
+    "PLAN_REVISION_CONTEXT:",
+    payload,
+    "Revise the previous plan to address the rejection reason. Do not re-scan the repository unless the reason explicitly requires new evidence.",
+  ].join("\n");
 }

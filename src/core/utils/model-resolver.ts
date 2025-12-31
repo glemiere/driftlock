@@ -49,10 +49,6 @@ export function resolveExecuteStepModel(
   auditorName?: string,
   mode: ExecuteStepMode = "apply"
 ): string {
-  if (mode === "fix_regression" && config.formatters.executeStep.fixRegressionModel) {
-    return config.formatters.executeStep.fixRegressionModel;
-  }
-
   if (config.formatters.executeStep.model) {
     return config.formatters.executeStep.model;
   }
@@ -72,10 +68,6 @@ export function resolveExecuteStepReasoning(
   auditorName?: string,
   mode: ExecuteStepMode = "apply"
 ): ReasoningEffort | undefined {
-  if (mode === "fix_regression" && config.formatters.executeStep.fixRegressionReasoning) {
-    return config.formatters.executeStep.fixRegressionReasoning;
-  }
-
   if (config.formatters.executeStep.reasoning) {
     return config.formatters.executeStep.reasoning;
   }

@@ -10,6 +10,7 @@ export type PlanContext = {
   planSchema: unknown;
   validateSchemaPath: string;
   executeFormatterPath: string;
+  executeRegressionFormatterPath: string;
   executeSchemaPath: string;
   validateStepSchemaPath: string;
   coreContext: string | null;
@@ -20,6 +21,8 @@ export type GeneratePlanArgs = {
   auditorPath: string;
   config: DriftlockConfig;
   context: PlanContext;
+  thread?: import("../plan/build-plan").PlanThread | null;
+  revision?: import("../plan/build-plan").PlanRevisionContext;
 };
 
 export type ValidatePlanArgs = {
@@ -90,12 +93,14 @@ export type QualityStage = {
   enabled: boolean;
   run: () => Promise<CommandResult>;
   buildFailureDetail: (result: CommandResult) => Promise<string>;
+  retryOnFailure?: (result: CommandResult) => Promise<CommandResult | null>;
 };
 
 export type QualityStageContext = {
   config: DriftlockConfig;
   cwd: string;
   onCondenseTestFailure?: (stdout: string, stderr: string) => Promise<string | undefined>;
+  touchedFiles?: string[];
 };
 
 export type StepRuntime = {

@@ -10,6 +10,8 @@ type JsonSchema = {
   minItems?: number;
   maxItems?: number;
   minLength?: number;
+  minimum?: number;
+  maximum?: number;
   enum?: unknown[];
   const?: unknown;
   oneOf?: JsonSchema[];
@@ -166,6 +168,30 @@ function validate(
         `${schemaName} validation failed at ${path}: value must be one of ${resolvedSchema.enum.join(
           ", "
         )}.`
+      );
+    }
+
+    return;
+  }
+
+  if (resolvedSchema.type === "number" || resolvedSchema.type === "integer") {
+    if (typeof value !== "number" || Number.isNaN(value)) {
+      throw new Error(`${schemaName} validation failed at ${path}: expected number.`);
+    }
+
+    if (resolvedSchema.type === "integer" && !Number.isInteger(value)) {
+      throw new Error(`${schemaName} validation failed at ${path}: expected integer.`);
+    }
+
+    if (typeof resolvedSchema.minimum === "number" && value < resolvedSchema.minimum) {
+      throw new Error(
+        `${schemaName} validation failed at ${path}: expected minimum ${resolvedSchema.minimum}.`
+      );
+    }
+
+    if (typeof resolvedSchema.maximum === "number" && value > resolvedSchema.maximum) {
+      throw new Error(
+        `${schemaName} validation failed at ${path}: expected maximum ${resolvedSchema.maximum}.`
       );
     }
 

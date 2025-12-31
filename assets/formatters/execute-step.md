@@ -2,6 +2,8 @@
 EXECUTE-STEP FORMATTER (MODE-AWARE, SAFETY-FIRST)
 ===========================================================
 
+Note: Regression runs use a dedicated prompt (`execute-step-regression.md`). This formatter is primarily for `MODE: apply`.
+
 You are the **executor** for a *single* plan step.
 
 Input (via prompt):

@@ -23,9 +23,8 @@ export type FormatterConfig = {
   path: string;
   schema: string;
   model?: string;
-  fixRegressionModel?: string;
+  fixRegressionPath?: string;
   reasoning?: ReasoningEffort;
-  fixRegressionReasoning?: ReasoningEffort;
 };
 
 export type QualityGateStageConfig = {
@@ -51,8 +50,10 @@ export type DriftlockConfig = {
     build: QualityGateStageConfig;
     lint: QualityGateStageConfig;
     test: QualityGateStageConfig;
+    lintAutoFix: string | null;
   };
   runBaselineQualityGate: boolean;
+  maxPlanRetries: number;
   maxValidationRetries: number;
   maxRegressionAttempts: number;
   maxThreadLifetimeAttempts: number;
@@ -75,6 +76,7 @@ type DriftlockConfigOverrides = {
     build: Partial<QualityGateStageConfig>;
     lint: Partial<QualityGateStageConfig>;
     test: Partial<QualityGateStageConfig>;
+    lintAutoFix: string | null;
   }>;
   formatters?: {
     plan?: Partial<FormatterConfig>;
@@ -87,6 +89,7 @@ type DriftlockConfigOverrides = {
     formatter?: Partial<FormatterConfig>;
   };
   runBaselineQualityGate?: boolean;
+  maxPlanRetries?: number;
   maxValidationRetries?: number;
   maxRegressionAttempts?: number;
   maxThreadLifetimeAttempts?: number;
@@ -250,13 +253,11 @@ function normalizeDefaultFormatterConfig(
     path: path.resolve(PACKAGE_ROOT, formatterPath),
     schema: path.resolve(PACKAGE_ROOT, schemaPath),
     model: typeof raw.model === "string" ? raw.model : undefined,
-    fixRegressionModel:
-      typeof raw.fixRegressionModel === "string" ? raw.fixRegressionModel : undefined,
-    reasoning: typeof raw.reasoning === "string" ? (raw.reasoning as ReasoningEffort) : undefined,
-    fixRegressionReasoning:
-      typeof raw.fixRegressionReasoning === "string"
-        ? (raw.fixRegressionReasoning as ReasoningEffort)
+    fixRegressionPath:
+      typeof raw.fixRegressionPath === "string"
+        ? path.resolve(PACKAGE_ROOT, raw.fixRegressionPath)
         : undefined,
+    reasoning: typeof raw.reasoning === "string" ? (raw.reasoning as ReasoningEffort) : undefined,
   };
 }
 
@@ -350,10 +351,20 @@ function normalizeDefaultQualityGate(root: RawConfigObject): DriftlockConfig["qu
     return { enabled, run };
   };
 
+  const lintAutoFixRaw = gateObj.lintAutoFix;
+  let lintAutoFix: string | null = null;
+  if (lintAutoFixRaw !== undefined) {
+    if (lintAutoFixRaw !== null && typeof lintAutoFixRaw !== "string") {
+      throw new Error('Default config "qualityGate.lintAutoFix" must be a string or null.');
+    }
+    lintAutoFix = lintAutoFixRaw as string | null;
+  }
+
   return {
     build: normalizeStage("build"),
     lint: normalizeStage("lint"),
     test: normalizeStage("test"),
+    lintAutoFix,
   };
 }
 
@@ -389,6 +400,8 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
     qualityGate,
     runBaselineQualityGate:
       typeof root.runBaselineQualityGate === "boolean" ? root.runBaselineQualityGate : true,
+    maxPlanRetries:
+      typeof root.maxPlanRetries === "number" ? root.maxPlanRetries : 1,
     maxValidationRetries:
       typeof root.maxValidationRetries === "number" ? root.maxValidationRetries : 1,
     maxRegressionAttempts:
@@ -559,13 +572,15 @@ function buildUserFormatterOverrides(
       partial.model = raw.model as string | undefined;
     }
 
-    if ("fixRegressionModel" in raw) {
-      if (raw.fixRegressionModel !== undefined && typeof raw.fixRegressionModel !== "string") {
+    if ("fixRegressionPath" in raw) {
+      if (raw.fixRegressionPath !== undefined && typeof raw.fixRegressionPath !== "string") {
         throw new Error(
-          `User config formatter "${String(name)}.fixRegressionModel" must be a string.`
+          `User config formatter "${String(name)}.fixRegressionPath" must be a string.`
         );
       }
-      partial.fixRegressionModel = raw.fixRegressionModel as string | undefined;
+      if (typeof raw.fixRegressionPath === "string") {
+        partial.fixRegressionPath = resolveUserConfigPath(cwd, raw.fixRegressionPath);
+      }
     }
 
     if ("reasoning" in raw) {
@@ -575,15 +590,6 @@ function buildUserFormatterOverrides(
         );
       }
       partial.reasoning = raw.reasoning as ReasoningEffort | undefined;
-    }
-
-    if ("fixRegressionReasoning" in raw) {
-      if (raw.fixRegressionReasoning !== undefined && typeof raw.fixRegressionReasoning !== "string") {
-        throw new Error(
-          `User config formatter "${String(name)}.fixRegressionReasoning" must be a string.`
-        );
-      }
-      partial.fixRegressionReasoning = raw.fixRegressionReasoning as ReasoningEffort | undefined;
     }
 
     override[name] = partial;
@@ -764,7 +770,26 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
     normalizeStage("lint");
     normalizeStage("test");
 
+    if ("lintAutoFix" in gateRoot) {
+      const lintAutoFix = gateRoot.lintAutoFix;
+      if (lintAutoFix !== null && typeof lintAutoFix !== "string") {
+        throw new Error(
+          'User config "qualityGate.lintAutoFix" must be a string or null.'
+        );
+      }
+      gateOverride.lintAutoFix = lintAutoFix as string | null;
+    }
+
     overrides.qualityGate = gateOverride;
+  }
+
+  if (root.maxPlanRetries !== undefined) {
+    if (typeof root.maxPlanRetries !== "number") {
+      throw new Error(
+        'User config "maxPlanRetries" must be a number when provided.'
+      );
+    }
+    overrides.maxPlanRetries = root.maxPlanRetries;
   }
 
   if (root.maxValidationRetries !== undefined) {
@@ -925,26 +950,44 @@ async function ensureValidatorPathsExist(config: DriftlockConfig): Promise<void>
 }
 
 async function ensureFormatterPathsExist(config: DriftlockConfig): Promise<void> {
-  const checks = Object.entries(config.formatters).flatMap(([name, formatter]) => [
-    (async () => {
-      try {
-        await fs.access(formatter.path, fsConstants.R_OK);
-      } catch {
-        throw new Error(
-          `Formatter "${name}" path does not exist or is not readable: ${formatter.path}`
-        );
-      }
-    })(),
-    (async () => {
-      try {
-        await fs.access(formatter.schema, fsConstants.R_OK);
-      } catch {
-        throw new Error(
-          `Formatter "${name}" schema does not exist or is not readable: ${formatter.schema}`
-        );
-      }
-    })(),
-  ]);
+  const checks = Object.entries(config.formatters).flatMap(([name, formatter]) => {
+    const baseChecks = [
+      (async () => {
+        try {
+          await fs.access(formatter.path, fsConstants.R_OK);
+        } catch {
+          throw new Error(
+            `Formatter "${name}" path does not exist or is not readable: ${formatter.path}`
+          );
+        }
+      })(),
+      (async () => {
+        try {
+          await fs.access(formatter.schema, fsConstants.R_OK);
+        } catch {
+          throw new Error(
+            `Formatter "${name}" schema does not exist or is not readable: ${formatter.schema}`
+          );
+        }
+      })(),
+    ];
+
+    if (!formatter.fixRegressionPath) {
+      return baseChecks;
+    }
+
+    return baseChecks.concat(
+      (async () => {
+        try {
+          await fs.access(formatter.fixRegressionPath as string, fsConstants.R_OK);
+        } catch {
+          throw new Error(
+            `Formatter "${name}" fixRegressionPath does not exist or is not readable: ${formatter.fixRegressionPath}`
+          );
+        }
+      })()
+    );
+  });
 
   await Promise.all(checks);
 }

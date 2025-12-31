@@ -81,8 +81,6 @@ export async function summarizePullRequest(options: {
         outputSchema: schema,
         ...(timeout.signal ? { signal: timeout.signal } : {}),
       });
-      let latest: PullRequestSummary | null = null;
-
       for await (const event of events) {
         const formatted = formatEvent("pull-request", event);
         if (formatted && onEvent) {
@@ -96,11 +94,11 @@ export async function summarizePullRequest(options: {
 
         const obj = parsed as Partial<PullRequestSummary>;
         if (typeof obj.title === "string" && typeof obj.body === "string") {
-          latest = { title: obj.title, body: obj.body };
+          return { title: obj.title, body: obj.body };
         }
       }
 
-      return latest;
+      return null;
     } catch (error) {
       if (timeout.didTimeout() && timeout.timeoutMs) {
         throw new Error(`Codex turn timed out after ${timeout.timeoutMs}ms.`);

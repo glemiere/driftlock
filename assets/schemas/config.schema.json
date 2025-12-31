@@ -74,12 +74,21 @@
       "properties": {
         "build": { "$ref": "#/$defs/qualityStageConfig" },
         "lint": { "$ref": "#/$defs/qualityStageConfig" },
-        "test": { "$ref": "#/$defs/qualityStageConfig" }
+        "test": { "$ref": "#/$defs/qualityStageConfig" },
+        "lintAutoFix": {
+          "description": "Optional command to auto-fix prettier/prettier lint failures on touched files. Use {files} to control insertion; otherwise files are appended.",
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        }
       }
     },
     "runBaselineQualityGate": {
       "type": "boolean",
       "description": "Whether to run a full build/lint/test cycle once before any auditors execute."
+    },
+    "maxPlanRetries": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Number of times to regenerate a plan after validator rejection (0 disables retries)."
     },
     "maxValidationRetries": {
       "type": "integer",
@@ -178,17 +187,13 @@
           "type": "string",
           "description": "Optional model override for this formatter-driven stage."
         },
-        "fixRegressionModel": {
+        "fixRegressionPath": {
           "type": "string",
-          "description": "Optional model override used only for the executor in fix_regression mode (when applicable)."
+          "description": "Optional formatter path used only for the executor in fix_regression mode (when applicable)."
         },
         "reasoning": {
           "$ref": "#/$defs/reasoningEffort",
           "description": "Optional reasoning effort override for this formatter-driven stage."
-        },
-        "fixRegressionReasoning": {
-          "$ref": "#/$defs/reasoningEffort",
-          "description": "Optional reasoning effort override used only for the executor in fix_regression mode (when applicable)."
         }
       },
       "required": ["path", "schema"]
