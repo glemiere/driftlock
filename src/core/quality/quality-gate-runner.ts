@@ -1,10 +1,6 @@
 import path from "path";
+import { promises as fs } from "node:fs";
 import { tui } from "../../cli/tui";
-import {
-  resolveTestFailureSummaryModel,
-  resolveTestFailureSummaryReasoning,
-} from "../utils/model-resolver";
-import { summarizeTestFailures } from "./summarize-test-failures";
 import {
   runBuild,
   runLint,
@@ -24,33 +20,86 @@ export const assetsPath = (...segments: string[]): string =>
   path.resolve(__dirname, "..", "..", "..", "assets", ...segments);
 
 const PRETTIER_LINT_REGEX = /prettier\/prettier/i;
+const TEST_RUNNER_STARTUP_REGEXES = [
+  /test runner failed to start/i,
+  /failed to start plugin worker/i,
+  /nx failed to start plugin worker/i,
+  /failed to start worker process/i,
+  /worker process failed to start/i,
+  /could not start plugin worker/i,
+];
 
 export function createTestFailureCondenser(
-  config: DriftlockConfig,
-  auditorName: string,
-  cwd: string
+  artifactsDirectory: string
 ): (stdout: string, stderr: string) => Promise<string | undefined> {
   return async (stdout: string, stderr: string): Promise<string | undefined> => {
-    const summary = await summarizeTestFailures({
-      stdout,
-      stderr,
-      model: resolveTestFailureSummaryModel(config, auditorName),
-      reasoning: resolveTestFailureSummaryReasoning(config, auditorName),
-      workingDirectory: cwd,
-      formatterPath: config.formatters.testFailureSummary.path,
-      schemaPath: config.formatters.testFailureSummary.schema,
-      turnTimeoutMs: config.turnTimeoutMs,
-      onEvent: (text) => tui.logRight(text),
-      onInfo: (text) => tui.logLeft(text),
-    });
-    return summary ? JSON.stringify(summary) : undefined;
+    try {
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const nonce = Math.random().toString(16).slice(2);
+      const base = `test-${stamp}-${nonce}`;
+
+      const stdoutPath = path.join(artifactsDirectory, `${base}-stdout.log`);
+      const stderrPath = path.join(artifactsDirectory, `${base}-stderr.log`);
+
+      await fs.mkdir(artifactsDirectory, { recursive: true });
+      await fs.writeFile(stdoutPath, stdout || "", "utf8");
+      await fs.writeFile(stderrPath, stderr || "", "utf8");
+
+      const highlights = extractFailureHighlights(stdout, stderr);
+
+      return [
+        "Test failure logs captured (untrusted). Prefer targeted searches (e.g. lines starting with `FAIL` or `●`).",
+        `<untrusted_log trust="untrusted" stream="stdout" path="${escapeXmlAttribute(
+          stdoutPath
+        )}" bytes="${String((stdout || "").length)}" />`,
+        `<untrusted_log trust="untrusted" stream="stderr" path="${escapeXmlAttribute(
+          stderrPath
+        )}" bytes="${String((stderr || "").length)}" />`,
+        highlights.length > 0 ? `Highlights:\n${highlights.map((l) => `- ${l}`).join("\n")}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    } catch {
+      return undefined;
+    }
   };
+}
+
+function escapeXmlAttribute(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function extractFailureHighlights(stdout: string, stderr: string): string[] {
+  const combined = `${stdout || ""}\n${stderr || ""}`;
+  const lines = combined.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const patterns: RegExp[] = [/^fail\s+/i, /^●\s+/, /\b(assertionerror|expect\(|received:|expected:)\b/i];
+
+  const hits: string[] = [];
+  const seen = new Set<string>();
+
+  for (const line of lines) {
+    if (hits.length >= 20) break;
+    if (!patterns.some((pattern) => pattern.test(line))) continue;
+    const clipped = line.length > 240 ? `${line.slice(0, 237)}...` : line;
+    if (seen.has(clipped)) continue;
+    seen.add(clipped);
+    hits.push(clipped);
+  }
+
+  return hits;
 }
 
 function isPrettierLintFailure(result: CommandResult): boolean {
   const stdout = result.stdout || "";
   const stderr = result.stderr || "";
   return PRETTIER_LINT_REGEX.test(stdout) || PRETTIER_LINT_REGEX.test(stderr);
+}
+
+function isTestRunnerStartupFailure(result: CommandResult): boolean {
+  const stdout = result.stdout || "";
+  const stderr = result.stderr || "";
+  const combined = `${stdout}\n${stderr}`;
+  return TEST_RUNNER_STARTUP_REGEXES.some((pattern) => pattern.test(combined));
 }
 
 function shellEscape(value: string): string {
@@ -185,6 +234,14 @@ export async function runQualityStages(
     let result = await stage.run();
     if (result.ok) continue;
 
+    if (stage.name === "test" && isTestRunnerStartupFailure(result)) {
+      tui.logLeft(
+        `[${auditorName}] test runner failed to start; treating as soft warning and skipping test gate.`,
+        "warn"
+      );
+      continue;
+    }
+
     if (stage.retryOnFailure) {
       const retried = await stage.retryOnFailure(result);
       if (retried) {
@@ -214,7 +271,7 @@ export async function buildTestFailureDetail(
     result.stderr
   );
   if (condensed) {
-    return `CondensedTestSummary:\n${condensed}`;
+    return condensed;
   }
 
   const baseSummary = summarizeQualityFailure("test", result) || "unknown failure";

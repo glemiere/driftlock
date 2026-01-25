@@ -44,7 +44,6 @@ export type DriftlockConfig = {
   formatters: {
     plan: FormatterConfig;
     executeStep: FormatterConfig;
-    testFailureSummary: FormatterConfig;
   };
   qualityGate: {
     build: QualityGateStageConfig;
@@ -81,7 +80,6 @@ type DriftlockConfigOverrides = {
   formatters?: {
     plan?: Partial<FormatterConfig>;
     executeStep?: Partial<FormatterConfig>;
-    testFailureSummary?: Partial<FormatterConfig>;
   };
   pullRequest?: {
     enabled?: boolean;
@@ -265,10 +263,6 @@ function normalizeDefaultFormatters(formattersObj: RawConfigObject): DriftlockCo
   return {
     plan: normalizeDefaultFormatterConfig("plan", formattersObj.plan),
     executeStep: normalizeDefaultFormatterConfig("executeStep", formattersObj.executeStep),
-    testFailureSummary: normalizeDefaultFormatterConfig(
-      "testFailureSummary",
-      formattersObj.testFailureSummary
-    ),
   };
 }
 
@@ -597,7 +591,6 @@ function buildUserFormatterOverrides(
 
   normalize("plan");
   normalize("executeStep");
-  normalize("testFailureSummary");
 
   return override;
 }

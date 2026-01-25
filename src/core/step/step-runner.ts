@@ -1,13 +1,72 @@
+import path from "node:path";
 import { tui } from "../../cli/tui";
 import { executePlanStep, type ExecutorThread, type ExecutePlanStepResult } from "./execute-plan-step";
 import { validateExecuteStep } from "./validate-execute-step";
 import type { ReasoningEffort } from "../config-loader";
+import { captureWorktreeSnapshot, diffWorktreeSnapshots } from "../git/worktree";
 import {
   type ExecuteStepPhaseArgs,
   type StepPhaseResult,
   type StepTracker,
 } from "../types/orchestrator.types";
 import { collectFiles, readSnapshots } from "./snapshots";
+
+const NOTHING_TO_CHANGE_PHRASES = [
+  "nothing to change",
+  "nothing can be removed",
+  "no changes made",
+  "no change to apply",
+  "no changes to apply",
+  "no patch to apply",
+  "no changes needed",
+  "no change needed",
+  "already lacks",
+  "already removed",
+  "already doesn't have",
+  "already does not have",
+  "already re-exported",
+  "already exported",
+  "already present",
+  "already exists",
+  "already done",
+  "already satisfied",
+  "no regression to fix",
+  "no regression fix is necessary",
+  "no regression fix necessary",
+  "no regression fix is needed",
+  "no regression fix needed",
+  "no regression fix required",
+  "no fix is necessary",
+  "no fix necessary",
+  "no fix required",
+  "nothing to delete",
+  "nothing to remove",
+  "no-op",
+  "noop",
+];
+
+const TEST_RUNNER_STARTUP_PHRASES = [
+  "test runner failed to start",
+  "failed to start plugin worker",
+  "nx failed to start plugin worker",
+  "failed to start worker process",
+  "worker process failed to start",
+  "could not start plugin worker",
+];
+
+function summaryIncludes(summary: string | undefined, phrases: string[]): boolean {
+  if (!summary) return false;
+  const summaryLower = summary.toLowerCase();
+  return phrases.some((phrase) => summaryLower.includes(phrase));
+}
+
+function isNothingToChangeSummary(summary: string | undefined): boolean {
+  return summaryIncludes(summary, NOTHING_TO_CHANGE_PHRASES);
+}
+
+function isTestRunnerStartupFailureSummary(summary: string | undefined): boolean {
+  return summaryIncludes(summary, TEST_RUNNER_STARTUP_PHRASES);
+}
 
 function failStepDueToThreadLimit(auditorName: string, stepText: string): StepPhaseResult {
   tui.logLeft(`[${auditorName}] thread attempts exhausted for step: ${stepText}`, "error");
@@ -16,7 +75,7 @@ function failStepDueToThreadLimit(auditorName: string, stepText: string): StepPh
 
 function formatStepText(stepText: string, additionalContext: string): string {
   if (!additionalContext) return stepText;
-  return `${stepText}\n\nContext:\n${additionalContext}`;
+  return `${stepText}\n\nContext:\n<untrusted_context trust="untrusted">\n${additionalContext}\n</untrusted_context>`;
 }
 
 function handleExecutorFailure(
@@ -24,50 +83,45 @@ function handleExecutorFailure(
   auditorName: string,
   mode: "apply" | "fix_regression"
 ): StepPhaseResult {
+  if (isTestRunnerStartupFailureSummary(result.summary)) {
+    tui.logLeft(
+      `[${auditorName}] test runner failed to start; skipping step: ${
+        result.summary || "no summary"
+      }`,
+      "warn"
+    );
+    return { kind: "noop", reason: result.summary || "test runner failed to start" };
+  }
+
   tui.logLeft(
     `[${auditorName}] executor failed step (${mode}): ${result.summary || "no summary"}`,
     "error"
   );
 
-  const summaryLower = (result.summary || "").toLowerCase();
-  const nothingToChangePhrases = [
-    "nothing to change",
-    "nothing can be removed",
-    "no changes made",
-    "no change to apply",
-    "no changes to apply",
-    "no patch to apply",
-    "already lacks",
-    "already removed",
-    "already doesn't have",
-    "already does not have",
-    "no regression fix is necessary",
-    "no regression fix necessary",
-    "no regression fix is needed",
-    "no regression fix needed",
-    "no regression fix required",
-    "no fix is necessary",
-    "no fix necessary",
-    "no fix required",
-    "nothing to delete",
-    "nothing to remove",
-    "no-op",
-    "noop",
-  ];
-  const nothingToChange = nothingToChangePhrases.some((phrase) =>
-    summaryLower.includes(phrase)
-  );
-  if (nothingToChange) {
+  if (isNothingToChangeSummary(result.summary)) {
+    if (mode === "apply") {
+      return { kind: "noop", reason: result.summary || "no changes needed" };
+    }
     return { kind: "abort" };
   }
 
   if (mode === "fix_regression") {
+    const summaryLower = (result.summary || "").toLowerCase();
     const nonRetryablePhrases = [
       "out of scope",
       "outside scope",
       "outside the scope",
       "scope limit",
       "scope limits",
+      "unrelated",
+      "not enough context",
+      "insufficient context",
+      "without broader context",
+      "needs broader context",
+      "no safe",
+      "no minimal fix",
+      "cannot be fixed safely",
+      "can't be fixed safely",
       "not allowed",
       "cannot resolve",
       "cannot modify",
@@ -94,6 +148,7 @@ async function runExecutor(args: {
   model: string;
   reasoning?: ReasoningEffort;
   workingDirectory: string;
+  additionalDirectories?: string[];
   formatterPath: string;
   schemaPath: string;
   coreContext?: string | null;
@@ -109,6 +164,7 @@ async function runExecutor(args: {
     model,
     reasoning,
     workingDirectory,
+    additionalDirectories,
     formatterPath,
     schemaPath,
     coreContext,
@@ -125,6 +181,7 @@ async function runExecutor(args: {
     model,
     reasoning,
     workingDirectory,
+    additionalDirectories,
     formatterPath,
     schemaPath,
     coreContext,
@@ -231,12 +288,45 @@ async function runExecuteStepValidator(args: {
 async function createExecutionResult(
   execution: ExecutePlanStepResult,
   workingDirectory: string,
-  thread: ExecutorThread | null
+  thread: ExecutorThread | null,
+  filesForSnapshot?: string[]
 ): Promise<StepPhaseResult> {
-  const filesForSnapshot = collectFiles(execution);
-  const codeSnapshots = await readSnapshots(Array.from(filesForSnapshot), workingDirectory);
+  const snapshotTargets =
+    filesForSnapshot && filesForSnapshot.length > 0
+      ? new Set(filesForSnapshot)
+      : collectFiles(execution);
+  const codeSnapshots = await readSnapshots(Array.from(snapshotTargets), workingDirectory);
 
   return { kind: "proceed", execution, codeSnapshots, thread };
+}
+
+function partitionExcludedPaths(
+  files: string[],
+  workingDirectory: string,
+  excludePaths: string[]
+): { included: string[]; excluded: string[] } {
+  if (!excludePaths || excludePaths.length === 0) {
+    return { included: files, excluded: [] };
+  }
+
+  const normalizedExcluded = excludePaths.map((excluded) => path.resolve(excluded));
+  const included: string[] = [];
+  const excluded: string[] = [];
+
+  for (const file of files) {
+    const absolute = path.resolve(workingDirectory, file);
+    const hitsExcluded = normalizedExcluded.some(
+      (excludedPath) =>
+        absolute === excludedPath || absolute.startsWith(`${excludedPath}${path.sep}`)
+    );
+    if (hitsExcluded) {
+      excluded.push(file);
+    } else {
+      included.push(file);
+    }
+  }
+
+  return { included, excluded };
 }
 
 export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<StepPhaseResult> {
@@ -246,6 +336,7 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     model,
     reasoning,
     workingDirectory,
+    additionalDirectories,
     formatterPath,
     schemaPath,
     coreContext,
@@ -267,12 +358,14 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     return failure;
   }
 
+  const workspaceBefore = await captureWorktreeSnapshot(workingDirectory);
   const execution = await runExecutor({
     stepText,
     mode,
     model,
     reasoning,
     workingDirectory,
+    additionalDirectories,
     formatterPath,
     schemaPath,
     coreContext,
@@ -282,7 +375,86 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     auditorName,
     thread,
   });
+
+  const workspaceAfter = await captureWorktreeSnapshot(workingDirectory);
+  let workspaceChangedFiles: string[] | null = null;
+  if (workspaceBefore && workspaceAfter) {
+    const changed = diffWorktreeSnapshots(workspaceBefore, workspaceAfter);
+    const partitioned = partitionExcludedPaths(changed, workingDirectory, excludePaths);
+    workspaceChangedFiles = partitioned.included;
+
+    if (partitioned.excluded.length > 0) {
+      tui.logLeft(
+        `[${auditorName}] workspace changes include excluded paths: ${partitioned.excluded.join(
+          ", "
+        )}`,
+        "warn"
+      );
+    }
+  }
+
+  if (execution.kind === "proceed") {
+    if (isNothingToChangeSummary(execution.execution.summary)) {
+      const threadRef = execution.thread ?? null;
+      if (!workspaceChangedFiles) {
+        tui.logLeft(
+          `[${auditorName}] executor reported no changes but git status is unavailable; aborting step: ${stepText}`,
+          "warn"
+        );
+        return { kind: "abort", thread: threadRef };
+      }
+      if (workspaceChangedFiles.length === 0) {
+        return {
+          kind: "noop",
+          reason: execution.execution.summary || "no changes needed",
+          thread: threadRef,
+        };
+      }
+      tui.logLeft(
+        `[${auditorName}] executor reported no changes but git detected modifications: ${workspaceChangedFiles.join(
+          ", "
+        )}`,
+        "warn"
+      );
+    }
+  }
+
+  if (execution.kind === "noop") {
+    const threadRef = execution.thread ?? null;
+    if (!workspaceChangedFiles) {
+      tui.logLeft(
+        `[${auditorName}] executor reported no changes but git status is unavailable; aborting step: ${stepText}`,
+        "warn"
+      );
+      return { kind: "abort", thread: threadRef };
+    }
+
+    if (workspaceChangedFiles.length > 0) {
+      tui.logLeft(
+        `[${auditorName}] executor reported no changes but git detected modifications: ${workspaceChangedFiles.join(
+          ", "
+        )}`,
+        "warn"
+      );
+      return { kind: "abort", thread: threadRef };
+    }
+
+    tui.logLeft(
+      `[${auditorName}] no changes detected; skipping step: ${stepText}`,
+      "success"
+    );
+    return { kind: "noop", reason: execution.reason, thread: threadRef };
+  }
+
   if (execution.kind !== "proceed") {
+    if (workspaceChangedFiles && workspaceChangedFiles.length > 0) {
+      tui.logLeft(
+        `[${auditorName}] executor failed but workspace changed (${workspaceChangedFiles.length} file(s)): ${workspaceChangedFiles.join(
+          ", "
+        )}`,
+        "warn"
+      );
+    }
     return execution;
   }
 
@@ -304,5 +476,23 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     return validation;
   }
 
-  return createExecutionResult(execution.execution, workingDirectory, execution.thread ?? null);
+  if (workspaceChangedFiles) {
+    if (workspaceChangedFiles.length === 0) {
+      tui.logLeft(
+        `[${auditorName}] executor reported success but git detected no file changes for step: ${stepText}`,
+        "warn"
+      );
+      return { kind: "abort", thread: execution.thread ?? null };
+    }
+
+    execution.execution.filesTouched = workspaceChangedFiles;
+    execution.execution.filesWritten = workspaceChangedFiles;
+  }
+
+  return createExecutionResult(
+    execution.execution,
+    workingDirectory,
+    execution.thread ?? null,
+    workspaceChangedFiles ?? undefined
+  );
 }

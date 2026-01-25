@@ -17,7 +17,12 @@ function handleKey(chunk: Buffer): void {
     shutdown();
     process.exit(0);
   } else if (key === KEY.quit) {
-    requestExit("q");
+    if (state.exitRequested) {
+      clearExitRequest();
+    } else {
+      requestExit("q");
+    }
+    scheduleRender();
   }
 }
 

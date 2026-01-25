@@ -1,4 +1,6 @@
 import { promises as fs } from "fs";
+import os from "node:os";
+import path from "node:path";
 import { tui } from "../cli/tui";
 import {
   resolveAuditorModel,
@@ -110,6 +112,61 @@ export type AuditLoopResult = {
   committedPlans: CommittedPlanSummary[];
 };
 
+function normalizeCommitSubjectPart(value: string): string {
+  return value.replace(/\r?\n/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function stripTrailingCommitPunctuation(value: string): string {
+  return value.replace(/[\s:;,.!-]+$/g, "").trim();
+}
+
+function stripTrailingCommitPeriod(value: string): string {
+  return value.replace(/[\s.]+$/g, "").trim();
+}
+
+function truncateCommitSubject(value: string, maxLength = 120): string {
+  const normalized = normalizeCommitSubjectPart(value);
+  if (normalized.length <= maxLength) return normalized;
+  if (maxLength <= 3) return normalized.slice(0, maxLength);
+  return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function buildCommitMessage(args: {
+  auditorName: string;
+  planName: string | null;
+  actions: string[];
+}): string {
+  const fallback = `[driftlock] ${args.auditorName} plan`;
+  const rawPrefix = normalizeCommitSubjectPart(args.planName ?? "");
+  const prefix = rawPrefix.length > 0 ? rawPrefix : fallback;
+
+  const rawAction = normalizeCommitSubjectPart(args.actions[0] ?? "");
+  const action = stripTrailingCommitPeriod(rawAction);
+
+  let subject = prefix;
+
+  if (action.length > 0) {
+    const normalizedPrefix = normalizeCommitSubjectPart(prefix);
+    const colonIndex = normalizedPrefix.indexOf(":");
+    const hasSuffix =
+      colonIndex >= 0 && normalizedPrefix.slice(colonIndex + 1).trim().length > 0;
+
+    if (hasSuffix) {
+      subject = normalizedPrefix;
+    } else {
+      const cleanPrefix = stripTrailingCommitPunctuation(normalizedPrefix);
+      subject = cleanPrefix.length > 0 ? `${cleanPrefix}: ${action}` : `${fallback}: ${action}`;
+    }
+
+    const remaining = Math.max(0, args.actions.length - 1);
+    if (remaining > 0) {
+      subject = `${subject} (+${remaining} more)`;
+    }
+  }
+
+  return truncateCommitSubject(subject);
+}
+
 class BaselineQualityGateError extends Error {
   constructor(message: string) {
     super(message);
@@ -193,8 +250,11 @@ async function runSingleAuditor(
     return { status: "no-plan" };
   }
   const planName = parsedPlan.name || (typeof plan === "object" && plan && (plan as { name?: string }).name) || null;
+  const actions = parsedPlan.plan
+    .map((planItem) => planItem.action)
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
 
-  const runtime = createStepRuntime({
+  const runtime = await createStepRuntime({
     auditorName,
     config,
     context,
@@ -202,59 +262,70 @@ async function runSingleAuditor(
     gateFailureFallback: "Quality gate failed (build/lint/test).",
   });
 
-  for (const item of parsedPlan.plan) {
-    const executed = await executePlanItem(item, runtime);
-    if (!executed) {
-      await safeRollback(runtime.cwd, auditorName);
-      return { status: "failed" };
-    }
-  }
-
-  const gateDisabled = checkQualityGateDisabled({
-    build: config.qualityGate.build,
-    lint: config.qualityGate.lint,
-    test: config.qualityGate.test,
-  });
-  if (!gateDisabled) {
-    const finalGate = await runStepQualityGate({
-      auditorName,
-      stepLabel: "final quality gate (pre-commit)",
-      config,
-      cwd: runtime.cwd,
-      onCondenseTestFailure: runtime.condense,
-      maxAttempts: config.maxValidationRetries,
-    });
-    if (!finalGate.passed) {
-      const message = finalGate.additionalContext || "build/lint/test failed";
-      tui.logLeft(`[${auditorName}] final quality gate failed: ${message}`, "error");
-      await safeRollback(runtime.cwd, auditorName);
-      return { status: "failed" };
-    }
-  }
-
-  const commitMessage = planName ? planName : `[driftlock] ${auditorName} plan`;
-  const committed = await commitPlanChanges(commitMessage, runtime.cwd);
-  if (!committed) {
-    tui.logLeft(`[${auditorName}] commit skipped or failed (no changes to commit?).`, "warn");
-  } else {
-    tui.logLeft(`[${auditorName}] plan committed: ${commitMessage}`, "success");
-    if (gitContext?.branch) {
-      await pushBranch(gitContext, runtime.cwd);
-    }
-  }
-
-  const committedPlan = committed
-    ? {
-        auditorName,
-        planName,
-        commitMessage,
-        actions: parsedPlan.plan
-          .map((planItem) => planItem.action)
-          .filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+  try {
+    for (const item of parsedPlan.plan) {
+      const executed = await executePlanItem(item, runtime);
+      if (!executed) {
+        await safeRollback(runtime.cwd, auditorName);
+        return { status: "failed" };
       }
-    : undefined;
+    }
 
-  return { status: "success", committedPlan };
+    const gateDisabled = checkQualityGateDisabled({
+      build: config.qualityGate.build,
+      lint: config.qualityGate.lint,
+      test: config.qualityGate.test,
+    });
+    if (!gateDisabled) {
+      const finalGate = await runStepQualityGate({
+        auditorName,
+        stepLabel: "final quality gate (pre-commit)",
+        config,
+        cwd: runtime.cwd,
+        onCondenseTestFailure: runtime.condense,
+        maxAttempts: config.maxValidationRetries,
+      });
+      if (!finalGate.passed) {
+        const message = finalGate.additionalContext || "build/lint/test failed";
+        tui.logLeft(`[${auditorName}] final quality gate failed: ${message}`, "error");
+        await safeRollback(runtime.cwd, auditorName);
+        return { status: "failed" };
+      }
+    }
+
+    const commitMessage = buildCommitMessage({ auditorName, planName, actions });
+    const committed = await commitPlanChanges(commitMessage, runtime.cwd);
+    if (!committed) {
+      tui.logLeft(`[${auditorName}] commit skipped or failed (no changes to commit?).`, "warn");
+    } else {
+      tui.logLeft(`[${auditorName}] plan committed: ${commitMessage}`, "success");
+      if (gitContext?.branch) {
+        await pushBranch(gitContext, runtime.cwd);
+      }
+    }
+
+    const committedPlan = committed
+      ? {
+          auditorName,
+          planName,
+          commitMessage,
+          actions,
+        }
+      : undefined;
+
+    return { status: "success", committedPlan };
+  } finally {
+    await cleanupRuntimeArtifacts(runtime);
+  }
+}
+
+async function cleanupRuntimeArtifacts(runtime: StepRuntime): Promise<void> {
+  if (!runtime.artifactsDirectory) return;
+  try {
+    await fs.rm(runtime.artifactsDirectory, { recursive: true, force: true });
+  } catch {
+    // best-effort cleanup only
+  }
 }
 
 async function safeRollback(cwd: string, auditorName: string): Promise<void> {
@@ -345,26 +416,34 @@ async function runStepQualityGate(args: {
   const stages = createQualityStages({ config, cwd, onCondenseTestFailure, touchedFiles });
   const configuredMaxAttempts =
     typeof args.maxAttempts === "number" ? args.maxAttempts : config.maxValidationRetries;
-  const requiredPasses = Math.max(configuredMaxAttempts || 1, 1);
+  const maxAttempts = Math.max(configuredMaxAttempts || 1, 1);
 
-  for (let pass = 1; pass <= requiredPasses; pass += 1) {
+  let lastFailureContext: string | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     tui.logLeft(
-      `[${auditorName}] quality gate pass ${pass}/${requiredPasses} for ${stepLabel}`
+      `[${auditorName}] quality gate attempt ${attempt}/${maxAttempts} for ${stepLabel}`
     );
 
     const gateResult = await runQualityStages(auditorName, stages);
-    if (!gateResult.passed) {
-      return {
-        passed: false,
-        additionalContext:
-          gateResult.additionalContext ||
-          `Quality gate failed during pass ${pass}/${requiredPasses} (build/lint/test).`,
-      };
+    if (gateResult.passed) {
+      tui.logLeft(`[${auditorName}] quality gate passed for ${stepLabel}.`, "success");
+      return { passed: true };
+    }
+
+    lastFailureContext =
+      gateResult.additionalContext ||
+      `Quality gate failed during attempt ${attempt}/${maxAttempts} (build/lint/test).`;
+
+    if (attempt < maxAttempts) {
+      tui.logLeft(
+        `[${auditorName}] quality gate failed (attempt ${attempt}/${maxAttempts}); retrying.`,
+        "warn"
+      );
     }
   }
 
-  tui.logLeft(`[${auditorName}] quality gate passed for ${stepLabel}.`, "success");
-  return { passed: true };
+  return { passed: false, additionalContext: lastFailureContext || "build/lint/test failed" };
 }
 
 async function runRegressionForStep(args: {
@@ -377,7 +456,9 @@ async function runRegressionForStep(args: {
   config: DriftlockConfig;
   context: PlanContext;
   cwd: string;
+  additionalDirectories?: string[];
   excludePaths: string[];
+  condenseTestFailure: (stdout: string, stderr: string) => Promise<string | undefined>;
   tracker: StepTracker;
   regressionAttempts: number;
   additionalContext: string;
@@ -395,7 +476,9 @@ async function runRegressionForStep(args: {
     config,
     context,
     cwd,
+    additionalDirectories,
     excludePaths,
+    condenseTestFailure,
     tracker,
     initialSnapshots,
     gateFailureFallback,
@@ -404,8 +487,6 @@ async function runRegressionForStep(args: {
 
   let regressionAttempts = args.regressionAttempts;
   let additionalContext = args.additionalContext;
-
-  const condense = createTestFailureCondenser(config, auditorName, cwd);
 
   while (true) {
     const execPhase = await executeStepPhase({
@@ -419,6 +500,7 @@ async function runRegressionForStep(args: {
       coreContext: context.coreContext,
       excludePaths,
       workingDirectory: cwd,
+      additionalDirectories,
       additionalContext,
       turnTimeoutMs: config.turnTimeoutMs,
       tracker,
@@ -431,6 +513,14 @@ async function runRegressionForStep(args: {
 
     if (execPhase.kind === "abort") {
       state.thread = execPhase.thread ?? state.thread;
+      return false;
+    }
+    if (execPhase.kind === "noop") {
+      state.thread = execPhase.thread ?? state.thread;
+      tui.logLeft(
+        `[${auditorName}] regression step reported no changes; aborting regression: ${stepText}`,
+        "warn"
+      );
       return false;
     }
     if (execPhase.kind === "retry") {
@@ -483,7 +573,7 @@ async function runRegressionForStep(args: {
       stepLabel: `step regression: ${stepText}`,
       config,
       cwd,
-      onCondenseTestFailure: condense,
+      onCondenseTestFailure: condenseTestFailure,
       touchedFiles: collectTouchedFiles(execPhase.execution),
     });
 
@@ -500,7 +590,7 @@ async function runRegressionForStep(args: {
   }
 }
 
-function createStepRuntime(args: {
+async function createStepRuntime(args: {
   auditorName: string;
   config: DriftlockConfig;
   context: PlanContext;
@@ -515,8 +605,23 @@ function createStepRuntime(args: {
   executeStepValidatorPath?: string;
   executeStepValidatorModel?: string;
   executeStepValidatorReasoning?: ReasoningEffort;
-}): StepRuntime {
+}): Promise<StepRuntime> {
   const cwd = process.cwd();
+  let artifactsDir: string | null = null;
+  try {
+    artifactsDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), `driftlock-qg-${args.auditorName}-`)
+    );
+  } catch {
+    artifactsDir = null;
+  }
+
+  const additionalDirectories = artifactsDir ? [artifactsDir] : undefined;
+  const condense =
+    artifactsDir
+      ? createTestFailureCondenser(artifactsDir)
+      : async () => undefined;
+
   return {
     auditorName: args.auditorName,
     config: args.config,
@@ -545,9 +650,11 @@ function createStepRuntime(args: {
       args.executeStepValidatorReasoning ??
       resolveValidatorReasoning(args.config, args.auditorName, "execute-step"),
     cwd,
+    artifactsDirectory: artifactsDir ?? undefined,
+    additionalDirectories,
     excludePaths: args.config.exclude,
     turnTimeoutMs: args.config.turnTimeoutMs,
-    condense: createTestFailureCondenser(args.config, args.auditorName, cwd),
+    condense,
   };
 }
 
@@ -644,6 +751,7 @@ async function performApplyPhase(
     coreContext: runtime.context.coreContext,
     excludePaths: runtime.excludePaths,
     workingDirectory: runtime.cwd,
+    additionalDirectories: runtime.additionalDirectories,
     additionalContext: state.additionalContext,
     turnTimeoutMs: runtime.turnTimeoutMs,
     tracker: state.tracker,
@@ -700,6 +808,14 @@ async function handlePhaseDecision(args: {
       "error"
     );
     return "abort";
+  }
+
+  if (phase.kind === "noop") {
+    tui.logLeft(
+      `[${runtime.auditorName}] ${phaseName} skipped; no changes needed for step: ${step.stepWithContext}`,
+      "success"
+    );
+    return "completed";
   }
 
   if (phase.kind === "retry") {
@@ -769,7 +885,9 @@ async function triggerRegression(
     config: runtime.config,
     context: runtime.context,
     cwd: runtime.cwd,
+    additionalDirectories: runtime.additionalDirectories,
     excludePaths: runtime.excludePaths,
+    condenseTestFailure: runtime.condense,
     tracker: state.tracker,
     regressionAttempts: state.regressionAttempts,
     additionalContext: state.additionalContext,
@@ -837,6 +955,8 @@ async function generatePlanForAuditor(args: GeneratePlanArgs): Promise<PlanFetch
       planFormatter: context.planFormatter,
       planSchema: context.planSchema,
       workingDirectory: process.cwd(),
+      coreContext: context.coreContext,
+      excludePaths: config.exclude,
       turnTimeoutMs: config.turnTimeoutMs,
       onEvent: (text) => tui.logRight(text),
       onInfo: (text) => tui.logLeft(text),
@@ -974,6 +1094,13 @@ async function validateStepPhase(args: {
       `[${auditorName}] step validation failed (${mode}): ${reason}`,
       "warn"
     );
+    if (reason.toLowerCase().includes("missing metadata")) {
+      tui.logLeft(
+        `[${auditorName}] proceeding despite missing metadata; relying on quality gate for step: ${stepText}`,
+        "warn"
+      );
+      return { kind: "proceed", execution, codeSnapshots, thread: thread ?? null };
+    }
     return {
       kind: "retry",
       additionalContext: `Step validation failed: ${reason}`,

@@ -122,52 +122,6 @@ export function resolveValidatorReasoning(
   return resolveGlobalReasoning(config);
 }
 
-export function resolveTestFailureSummaryModel(
-  config: DriftlockConfig,
-  auditorName?: string
-): string {
-  if (config.formatters.testFailureSummary.model) {
-    return config.formatters.testFailureSummary.model;
-  }
-
-  const stepValidator = config.validators.step;
-  if (stepValidator?.model) {
-    return stepValidator.model;
-  }
-
-  if (auditorName) {
-    const auditor = config.auditors[auditorName];
-    if (auditor?.model) {
-      return auditor.model;
-    }
-  }
-
-  return resolveGlobalModel(config);
-}
-
-export function resolveTestFailureSummaryReasoning(
-  config: DriftlockConfig,
-  auditorName?: string
-): ReasoningEffort | undefined {
-  if (config.formatters.testFailureSummary.reasoning) {
-    return config.formatters.testFailureSummary.reasoning;
-  }
-
-  const stepValidator = config.validators.step;
-  if (stepValidator?.reasoning) {
-    return stepValidator.reasoning;
-  }
-
-  if (auditorName) {
-    const auditor = config.auditors[auditorName];
-    if (auditor?.reasoning) {
-      return auditor.reasoning;
-    }
-  }
-
-  return resolveGlobalReasoning(config);
-}
-
 export function resolvePullRequestModel(config: DriftlockConfig): string {
   if (config.pullRequest.formatter.model) {
     return config.pullRequest.formatter.model;

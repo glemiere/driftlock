@@ -55,10 +55,9 @@
       "additionalProperties": false,
       "properties": {
         "plan": { "$ref": "#/$defs/formatterConfig" },
-        "executeStep": { "$ref": "#/$defs/formatterConfig" },
-        "testFailureSummary": { "$ref": "#/$defs/formatterConfig" }
+        "executeStep": { "$ref": "#/$defs/formatterConfig" }
       },
-      "required": ["plan", "executeStep", "testFailureSummary"]
+      "required": ["plan", "executeStep"]
     },
     "exclude": {
       "type": "array",

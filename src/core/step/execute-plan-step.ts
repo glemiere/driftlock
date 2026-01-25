@@ -25,6 +25,7 @@ export type ExecutePlanStepOptions = {
   model: string;
   reasoning?: ReasoningEffort;
   workingDirectory: string;
+  additionalDirectories?: string[];
   formatterPath: string;
   schemaPath: string;
   coreContext?: string | null;
@@ -60,6 +61,7 @@ export async function executePlanStep(
     model,
     reasoning,
     workingDirectory,
+    additionalDirectories,
     formatterPath,
     schemaPath,
     excludePaths = [],
@@ -72,7 +74,10 @@ export async function executePlanStep(
 
   const formatter = await readTextFile(formatterPath);
   const outputSchema = (await readJsonFile(schemaPath)) as unknown;
-  const basePrompt = combinePrompts(buildStepPrompt(stepText, mode), formatter);
+  const basePrompt = combinePrompts(
+    buildStepPrompt(stepText, mode, excludePaths, workingDirectory),
+    formatter
+  );
   const combinedPrompt = combineWithCoreContext(coreContext ?? null, basePrompt);
 
   const normalizedReasoning = normalizeModelReasoningEffort(model, reasoning);
@@ -103,6 +108,7 @@ export async function executePlanStep(
         model,
         modelReasoningEffort: normalizedReasoning,
         workingDirectory,
+        additionalDirectories: (additionalDirectories ?? []).filter(Boolean),
         sandboxMode: "workspace-write",
         skipGitRepoCheck: true,
       }) as unknown as ExecutorThread;
@@ -137,8 +143,36 @@ export async function executePlanStep(
   return { result: parsed, agentMessage: latestAgentMessage, thread };
 }
 
-function buildStepPrompt(stepText: string, mode: StepMode): string {
-  return `${stepText.trim()}\n\nMODE: ${mode}`;
+function buildStepPrompt(
+  stepText: string,
+  mode: StepMode,
+  excludePaths: string[],
+  workingDirectory: string
+): string {
+  return `${stepText.trim()}\n\nMODE: ${mode}\n\n${buildExcludedPathsBlock(
+    excludePaths,
+    workingDirectory
+  )}`;
+}
+
+function buildExcludedPathsBlock(excludePaths: string[], workingDirectory: string): string {
+  const unique = Array.from(new Set((excludePaths ?? []).filter(Boolean)));
+  if (unique.length === 0) {
+    return "Excluded paths (do NOT touch):\n<excluded_paths>(none)</excluded_paths>";
+  }
+
+  const lines = unique.map((excludedPath) => {
+    const relative = path.relative(workingDirectory, excludedPath);
+    const display =
+      relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+        ? relative
+        : excludedPath;
+    return `- ${display}`;
+  });
+
+  return ["Excluded paths (do NOT touch):", "<excluded_paths>", ...lines, "</excluded_paths>"].join(
+    "\n"
+  );
 }
 
 async function streamExecutorEvents(

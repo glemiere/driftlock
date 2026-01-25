@@ -1,7 +1,7 @@
 {
   "$schema": "./assets/schemas/config.schema.json",
   "model": "gpt-5.2-codex",
-  "reasoning": "low",
+  "reasoning": "medium",
   "qualityGate": {
     "build": { "enabled": true, "run": "npm run build" },
     "lint": { "enabled": true, "run": "npm run lint" },
@@ -11,8 +11,8 @@
   "runBaselineQualityGate": true,
   "maxPlanRetries": 3,
   "maxValidationRetries": 2,
-  "maxRegressionAttempts": 25,
-  "maxThreadLifetimeAttempts": 100,
+  "maxRegressionAttempts": 5,
+  "maxThreadLifetimeAttempts": 10,
   "turnTimeoutMs": 1200000,
   "pullRequest": {
     "enabled": true,
@@ -30,80 +30,80 @@
       "path": "./assets/auditors/complexity.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "consistency": {
       "enabled": true,
       "path": "./assets/auditors/consistency.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "dependency": {
       "enabled": false,
       "path": "./assets/auditors/dependency.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "documentation": {
       "enabled": false,
       "path": "./assets/auditors/documentation.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "modularity": {
       "enabled": true,
       "path": "./assets/auditors/modularity.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "performance": {
       "enabled": true,
       "path": "./assets/auditors/performance.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "quality": {
       "enabled": true,
       "path": "./assets/auditors/quality.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "reliability": {
       "enabled": true,
       "path": "./assets/auditors/reliability.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     },
     "security": {
       "enabled": true,
       "path": "./assets/auditors/security.md",
       "validators": ["plan"],
       "model": "gpt-5.2",
-      "reasoning": "high"
+      "reasoning": "medium"
     }
   },
   "validators": {
     "plan": {
       "path": "./assets/validators/plan.md",
-      "model": "gpt-5.2",
-      "reasoning": "high"
+      "model": "gpt-5.1-codex-mini",
+      "reasoning": "low"
     },
     "execute-step": {
       "path": "./assets/validators/execute-step.md",
-      "model": "gpt-5.2",
-      "reasoning": "high"
+      "model": "gpt-5.1-codex-mini",
+      "reasoning": "low"
     },
     "step": {
       "path": "./assets/validators/step.md",
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "model": "gpt-5.1-codex-mini",
+      "reasoning": "low"
     }
   },
   "formatters": {
@@ -119,12 +119,6 @@
       "model": "gpt-5.2-codex",
       "fixRegressionPath": "./assets/formatters/execute-step-regression.md",
       "reasoning": "medium"
-    },
-    "testFailureSummary": {
-      "path": "./assets/sanitazors/quality-tests.md",
-      "schema": "./assets/schemas/test-failure-summary.schema.json",
-      "model": "gpt-5.1-codex-mini",
-      "reasoning": "low"
     }
   },
   "exclude": []

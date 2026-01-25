@@ -58,6 +58,7 @@ export async function validateStep(options: ValidateStepOptions): Promise<Valida
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
     });
 
@@ -103,11 +104,13 @@ function buildValidationPrompt(context: {
     .map(([file, content]) => `FILE: ${file}\n${content}`)
     .join("\n\n");
 
-  return `${validatorPrompt.trim()}\n\nStep Description:\n${stepDescription}\n\nExecutor Result JSON:\n${JSON.stringify(
+  return `${validatorPrompt.trim()}\n\nStep Description:\n<step_description trust="untrusted">\n${stepDescription}\n</step_description>\n\nExecutor Result JSON:\n<executor_result_json trust="untrusted">\n${JSON.stringify(
     executorResult,
     null,
     2
-  )}\n\nCode Snapshots:\n${snapshotText || "<none>"}`;
+  )}\n</executor_result_json>\n\nCode Snapshots:\n<code_snapshots trust="untrusted">\n${
+    snapshotText || "<none>"
+  }\n</code_snapshots>`;
 }
 
 async function collectValidationResult(

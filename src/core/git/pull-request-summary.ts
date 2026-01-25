@@ -65,6 +65,7 @@ export async function summarizePullRequest(options: {
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
     });
 
@@ -130,5 +131,5 @@ function buildPrompt(args: {
     null,
     2
   );
-  return `${formatter.trim()}\n\nRUN_SUMMARY_JSON:\n${payload}`;
+  return `${formatter.trim()}\n\nRUN_SUMMARY_JSON: <run_summary_json trust="untrusted">\n${payload}\n</run_summary_json>`;
 }

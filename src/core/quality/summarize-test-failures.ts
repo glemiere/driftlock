@@ -64,6 +64,7 @@ export async function summarizeTestFailures(options: {
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
       additionalDirectories: [tmpDir],
     });
@@ -143,8 +144,10 @@ function buildPrompt(args: {
     "Raw test output is stored on disk to avoid blowing up the context window.",
     "Do NOT paste full logs into your response. Use targeted commands (rg/sed/head) to extract only what you need.",
     "",
+    '<test_output_files trust="untrusted">',
     `stdoutFile: ${stdoutPath} (chars: ${stdoutChars})`,
     `stderrFile: ${stderrPath} (chars: ${stderrChars})`,
+    "</test_output_files>",
   ].join("\n");
   return `${formatter.trim()}\n\n${source}`;
 }

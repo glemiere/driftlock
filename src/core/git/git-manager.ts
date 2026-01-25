@@ -86,8 +86,7 @@ export async function commitPlanChanges(message: string, cwd: string): Promise<b
     return false;
   }
 
-  const safeMessage = message.replace(/"/g, '\\"');
-  const commitResult = await runCommand(`git commit -m "${safeMessage}"`, cwd);
+  const commitResult = await runCommand(`git commit -m ${quoteShell(message)}`, cwd);
   return commitResult.ok;
 }
 

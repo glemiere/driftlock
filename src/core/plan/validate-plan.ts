@@ -154,6 +154,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
     });
 
@@ -297,5 +298,9 @@ async function collectValidationResult(
 }
 
 function buildValidationPrompt(validatorPrompt: string, plan: unknown): string {
-  return `${validatorPrompt.trim()}\n\nPlan JSON:\n${JSON.stringify(plan, null, 2)}`;
+  return `${validatorPrompt.trim()}\n\nPlan JSON:\n<plan_json trust="untrusted">\n${JSON.stringify(
+    plan,
+    null,
+    2
+  )}\n</plan_json>`;
 }

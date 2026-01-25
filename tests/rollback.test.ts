@@ -51,7 +51,9 @@ describe("rollback", () => {
     const success = await commitPlanChanges("msg", "/repo");
     expect(success).toBe(true);
     expect(mockedRunCommand).toHaveBeenNthCalledWith(1, "git add -A", "/repo");
-    expect(mockedRunCommand).toHaveBeenNthCalledWith(2, 'git commit -m "msg"', "/repo");
+    const expectedCommit =
+      process.platform === "win32" ? 'git commit -m "msg"' : "git commit -m 'msg'";
+    expect(mockedRunCommand).toHaveBeenNthCalledWith(2, expectedCommit, "/repo");
   });
 
   it("returns false when add fails", async () => {

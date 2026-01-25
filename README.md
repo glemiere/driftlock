@@ -195,7 +195,7 @@ These schemas complement the human-readable Markdown formatters by providing str
 - Validates:
   - `auditors` map and each auditor’s `enabled`, `path`, `validators`, optional `model`  
   - `validators` map (name → object with `path` and optional `model`)  
-  - `formatters` entries (`plan`, `executeStep`, `testFailureSummary`) with `path`, `schema`, optional `model`  
+  - `formatters` entries (`plan`, `executeStep`) with `path`, `schema`, optional `model`  
   - top-level `exclude` array and top-level default `model`  
 - Editors and tooling can use this schema (via the `$schema` field in `config.default.json` or your own `driftlock.config.json`) to provide validation and autocomplete for configuration changes.
 

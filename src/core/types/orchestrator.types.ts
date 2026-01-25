@@ -57,6 +57,7 @@ export type ParsedPlan = {
 export type StepPhaseResult =
   | { kind: "abort"; thread?: ExecutorThread | null }
   | { kind: "retry"; additionalContext: string; thread?: ExecutorThread | null }
+  | { kind: "noop"; reason: string; thread?: ExecutorThread | null }
   | { kind: "proceed"; execution: ExecutePlanStepResult; codeSnapshots: Record<string, string>; thread: ExecutorThread | null };
 
 export type StepTracker = {
@@ -76,6 +77,7 @@ export type ExecuteStepPhaseArgs = {
   coreContext?: string | null;
   excludePaths: string[];
   workingDirectory: string;
+  additionalDirectories?: string[];
   additionalContext: string;
   turnTimeoutMs?: number;
   tracker: StepTracker;
@@ -119,6 +121,8 @@ export type StepRuntime = {
   executeStepValidatorModel?: string;
   executeStepValidatorReasoning?: ReasoningEffort;
   cwd: string;
+  artifactsDirectory?: string;
+  additionalDirectories?: string[];
   excludePaths: string[];
   turnTimeoutMs?: number;
   condense: (stdout: string, stderr: string) => Promise<string | undefined>;

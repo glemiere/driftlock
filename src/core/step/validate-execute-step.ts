@@ -58,6 +58,7 @@ export async function validateExecuteStep(
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
+      sandboxMode: "workspace-write",
       skipGitRepoCheck: true,
     });
 
@@ -98,11 +99,11 @@ function buildValidationPrompt(context: {
 }): string {
   const { validatorPrompt, stepDescription, executorResult } = context;
 
-  return `${validatorPrompt.trim()}\n\nStep Description:\n${stepDescription}\n\nExecutor Result JSON:\n${JSON.stringify(
+  return `${validatorPrompt.trim()}\n\nStep Description:\n<step_description trust="untrusted">\n${stepDescription}\n</step_description>\n\nExecutor Result JSON:\n<executor_result_json trust="untrusted">\n${JSON.stringify(
     executorResult,
     null,
     2
-  )}`;
+  )}\n</executor_result_json>`;
 }
 
 async function collectValidationResult(

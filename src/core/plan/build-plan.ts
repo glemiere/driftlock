@@ -1,3 +1,4 @@
+import path from "path";
 import { readTextFile } from "../../utils/fs";
 import type { ThreadEvent } from "@openai/codex-sdk";
 import type { ReasoningEffort } from "../config-loader";
@@ -34,6 +35,7 @@ export type BuildPlanOptions = {
   reasoning?: ReasoningEffort;
   workingDirectory: string;
   coreContext?: string | null;
+  excludePaths?: string[];
   turnTimeoutMs?: number;
   onEvent?: (formatted: string, colorKey?: string) => void;
   onInfo?: (message: string) => void;
@@ -53,6 +55,7 @@ export async function buildPlan(
     reasoning,
     workingDirectory,
     coreContext,
+    excludePaths,
     turnTimeoutMs,
     onEvent,
     onInfo,
@@ -64,7 +67,9 @@ export async function buildPlan(
     auditorPath,
     planFormatter,
     coreContext,
-    revision
+    revision,
+    excludePaths ?? [],
+    workingDirectory
   );
   onInfo?.(
     `[${auditorName}] generating plan with model: ${model}${
@@ -109,13 +114,22 @@ async function loadCombinedPrompt(
   auditorPath: string,
   planFormatter: string,
   coreContext?: string | null,
-  revision?: PlanRevisionContext
+  revision?: PlanRevisionContext,
+  excludePaths: string[] = [],
+  workingDirectory?: string
 ): Promise<string> {
   const auditorPrompt = await readTextFile(auditorPath);
   const withFormatter = combinePrompts(auditorPrompt, planFormatter);
   const basePrompt = combineWithCoreContext(coreContext ?? null, withFormatter);
+  const excludeContext =
+    typeof workingDirectory === "string"
+      ? buildExcludeContext(excludePaths, workingDirectory)
+      : null;
+  const basePromptWithExcludes = excludeContext ? `${basePrompt}\n\n${excludeContext}` : basePrompt;
   const revisionContext = buildRevisionContext(revision);
-  return revisionContext ? `${basePrompt}\n\n${revisionContext}` : basePrompt;
+  return revisionContext
+    ? `${basePromptWithExcludes}\n\n${revisionContext}`
+    : basePromptWithExcludes;
 }
 
 async function startPlanThread(
@@ -129,6 +143,7 @@ async function startPlanThread(
     model,
     modelReasoningEffort: reasoning,
     workingDirectory,
+    sandboxMode: "workspace-write",
     skipGitRepoCheck: true,
   });
 }
@@ -208,7 +223,27 @@ function buildRevisionContext(revision?: PlanRevisionContext): string | null {
 
   return [
     "PLAN_REVISION_CONTEXT:",
+    `<plan_revision_context trust="untrusted">`,
     payload,
+    "</plan_revision_context>",
     "Revise the previous plan to address the rejection reason. Do not re-scan the repository unless the reason explicitly requires new evidence.",
   ].join("\n");
+}
+
+function buildExcludeContext(excludePaths: string[], workingDirectory: string): string {
+  const unique = Array.from(new Set((excludePaths ?? []).filter(Boolean)));
+  if (unique.length === 0) {
+    return '<excluded_paths>(none)</excluded_paths>';
+  }
+
+  const lines = unique.map((absolutePath) => {
+    const relative = path.relative(workingDirectory, absolutePath);
+    const display =
+      relative && !relative.startsWith("..") && !path.isAbsolute(relative)
+        ? relative
+        : absolutePath;
+    return `- ${display}`;
+  });
+
+  return [`<excluded_paths>`, ...lines, `</excluded_paths>`].join("\n");
 }
