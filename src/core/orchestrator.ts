@@ -52,10 +52,14 @@ export async function runAuditLoop(
   gitContext?: GitContext
 ): Promise<AuditLoopResult> {
   const context = await createPlanContext(config);
-  await maybeRunBaselineQualityGate(config);
+  const baselineCommittedPlans = await maybeRunBaselineQualityGate(
+    config,
+    context,
+    gitContext
+  );
   let index = 0;
   let noPlanStreak = 0;
-  const committedPlans: CommittedPlanSummary[] = [];
+  const committedPlans: CommittedPlanSummary[] = [...baselineCommittedPlans];
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -288,8 +292,25 @@ async function runSingleAuditor(
       if (!finalGate.passed) {
         const message = finalGate.additionalContext || "build/lint/test failed";
         tui.logLeft(`[${auditorName}] final quality gate failed: ${message}`, "error");
-        await safeRollback(runtime.cwd, auditorName);
-        return { status: "failed" };
+
+        const canRegressFinalGate = Boolean(config.finalQualityGateRegression);
+        if (canRegressFinalGate) {
+          const recovered = await attemptFinalQualityGateRegression({
+            auditorName,
+            planName,
+            actions,
+            runtime,
+            initialFailureContext: message,
+          });
+
+          if (!recovered) {
+            await safeRollback(runtime.cwd, auditorName);
+            return { status: "failed" };
+          }
+        } else {
+          await safeRollback(runtime.cwd, auditorName);
+          return { status: "failed" };
+        }
       }
     }
 
@@ -372,33 +393,153 @@ async function createPlanContext(config: DriftlockConfig): Promise<PlanContext> 
   };
 }
 
-async function maybeRunBaselineQualityGate(config: DriftlockConfig): Promise<void> {
-  if (!config.runBaselineQualityGate) return;
+function buildBaselineCoreContext(
+  baseCoreContext: string | null,
+  baselineFailures: string,
+  config: DriftlockConfig
+): string {
+  const payload = JSON.stringify(
+    {
+      exclude: config.exclude,
+      qualityGate: config.qualityGate,
+      runBaselineQualityGate: config.runBaselineQualityGate,
+    },
+    null,
+    2
+  );
+
+  return [
+    baseCoreContext?.trim(),
+    "BASELINE_CONTEXT:",
+    `<repo_description trust="untrusted">\nRepository root: ${process.cwd()}\n</repo_description>`,
+    `<baseline_failures trust="untrusted">\n${baselineFailures}\n</baseline_failures>`,
+    `<config trust="untrusted">\n${payload}\n</config>`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+async function maybeRunBaselineQualityGate(
+  config: DriftlockConfig,
+  context: PlanContext,
+  gitContext?: GitContext
+): Promise<CommittedPlanSummary[]> {
+  if (!config.runBaselineQualityGate) return [];
 
   const cwd = process.cwd();
   const gateDisabled = checkQualityGateDisabled(config.qualityGate);
 
   if (gateDisabled) {
     tui.logLeft("Baseline quality gate skipped (all quality stages disabled).", "warn");
-    return;
+    return [];
   }
 
-  const baseLineGateSpinner = tui.logLeft("Running the quality gate to make sure we have a clean base to work on.", "accent").withSpinner("dots");
+  const baseLineGateSpinner = tui
+    .logLeft(
+      "Running the quality gate to make sure we have a clean base to work on.",
+      "accent"
+    )
+    .withSpinner("dots");
+
   const baselineGate = await runStepQualityGate({
     auditorName: "baseline",
     stepLabel: "baseline quality gate (build/lint/test before auditors)",
     config,
     cwd,
-    maxAttempts: 1,
+    maxAttempts: config.maxValidationRetries || 1,
   });
 
-  if (!baselineGate.passed) {
-    const message = baselineGate.additionalContext || "build/lint/test did not pass";
-    baseLineGateSpinner.failure(`Baseline quality gate failed: ${message}`);
-    throw new BaselineQualityGateError(`Baseline quality gate failed: ${message}`);
+  if (baselineGate.passed) {
+    baseLineGateSpinner.success("Baseline quality gate passed (build/lint/test all green).");
+    return [];
   }
 
-  baseLineGateSpinner.success("Baseline quality gate passed (build/lint/test all green).");
+  let baselineFailures =
+    baselineGate.additionalContext || "build/lint/test did not pass";
+  baseLineGateSpinner.failure(`Baseline quality gate failed: ${baselineFailures}`);
+
+  const baselineSanitazor = config.baselines?.quality;
+  if (!baselineSanitazor?.enabled) {
+    throw new BaselineQualityGateError(`Baseline quality gate failed: ${baselineFailures}`);
+  }
+
+  const attemptsCap =
+    typeof baselineSanitazor.maxAttempts === "number" && baselineSanitazor.maxAttempts > 0
+      ? baselineSanitazor.maxAttempts
+      : null;
+
+  tui.logLeft(
+    `[baseline] attempting baseline repair${
+      attemptsCap ? ` (max attempts: ${attemptsCap})` : " (no max attempts)"
+    }.`,
+    "warn"
+  );
+
+  const baselineAuditorName = "baseline";
+  const baselineConfig: DriftlockConfig = {
+    ...config,
+    auditors: {
+      ...config.auditors,
+      [baselineAuditorName]: {
+        enabled: true,
+        path: baselineSanitazor.path,
+        validators: ["plan"],
+        model: baselineSanitazor.model,
+        reasoning: baselineSanitazor.reasoning,
+      },
+    },
+  };
+
+  const committed: CommittedPlanSummary[] = [];
+
+  let attempt = 1;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (attemptsCap !== null && attempt > attemptsCap) {
+      break;
+    }
+
+    tui.logLeft(
+      `[baseline] baseline repair attempt ${attempt}${attemptsCap ? `/${attemptsCap}` : ""}`,
+      "warn"
+    );
+
+    const baselineContext: PlanContext = {
+      ...context,
+      coreContext: buildBaselineCoreContext(context.coreContext ?? null, baselineFailures, config),
+    };
+
+    const outcome = await runSingleAuditor(
+      baselineAuditorName,
+      baselineConfig,
+      baselineContext,
+      gitContext
+    );
+
+    if (outcome.status === "success") {
+      if (outcome.committedPlan) committed.push(outcome.committedPlan);
+      tui.logLeft("[baseline] baseline repair completed.", "success");
+      return committed;
+    }
+
+    const retryGate = await runStepQualityGate({
+      auditorName: "baseline",
+      stepLabel: "baseline quality gate (post-repair check)",
+      config,
+      cwd,
+      maxAttempts: config.maxValidationRetries || 1,
+    });
+
+    if (retryGate.passed) {
+      tui.logLeft("[baseline] baseline quality gate passed after retry.", "success");
+      return committed;
+    }
+
+    baselineFailures = retryGate.additionalContext || baselineFailures;
+    attempt += 1;
+  }
+
+  throw new BaselineQualityGateError(`Baseline quality gate failed: ${baselineFailures}`);
 }
 
 async function runStepQualityGate(args: {
@@ -444,6 +585,106 @@ async function runStepQualityGate(args: {
   }
 
   return { passed: false, additionalContext: lastFailureContext || "build/lint/test failed" };
+}
+
+async function attemptFinalQualityGateRegression(args: {
+  auditorName: string;
+  planName: string | null;
+  actions: string[];
+  runtime: StepRuntime;
+  initialFailureContext: string;
+}): Promise<boolean> {
+  const { auditorName, planName, actions, runtime, initialFailureContext } = args;
+
+  const gateDisabled = checkQualityGateDisabled({
+    build: runtime.config.qualityGate.build,
+    lint: runtime.config.qualityGate.lint,
+    test: runtime.config.qualityGate.test,
+  });
+  if (gateDisabled) {
+    tui.logLeft(
+      `[${auditorName}] final quality gate regression skipped (quality gate disabled).`,
+      "warn"
+    );
+    return true;
+  }
+
+  const stepTextParts: string[] = [
+    "Fix the final quality gate failures (build/lint/test) while preserving the intent of the already-applied plan.",
+  ];
+  if (planName) {
+    stepTextParts.push(`Plan: ${planName}`);
+  }
+  if (actions.length > 0) {
+    stepTextParts.push(`Actions:\n${actions.map((a) => `- ${a}`).join("\n")}`);
+  }
+  const stepText = stepTextParts.join("\n\n");
+
+  let regressionAttempts = 0;
+  let additionalContext = initialFailureContext;
+  const tracker = new ThreadAttemptTracker(runtime.config.maxThreadLifetimeAttempts);
+  let thread: ExecutorThread | null = null;
+
+  while (true) {
+    tui.logLeft(
+      `[${auditorName}] entering regression (attempt ${regressionAttempts + 1}/${
+        runtime.config.maxRegressionAttempts || "∞"
+      }) for final quality gate.`,
+      "warn"
+    );
+
+    const execPhase = await executeStepPhase({
+      auditorName,
+      stepText,
+      mode: "fix_regression",
+      model: runtime.regressionModel,
+      reasoning: runtime.regressionReasoning,
+      formatterPath: runtime.context.executeRegressionFormatterPath,
+      schemaPath: runtime.context.executeSchemaPath,
+      coreContext: runtime.context.coreContext,
+      excludePaths: runtime.excludePaths,
+      workingDirectory: runtime.cwd,
+      additionalDirectories: runtime.additionalDirectories,
+      additionalContext,
+      turnTimeoutMs: runtime.turnTimeoutMs,
+      tracker,
+      executeStepValidatorPath: runtime.executeStepValidatorPath,
+      executeStepValidatorModel: runtime.executeStepValidatorModel,
+      executeStepValidatorReasoning: runtime.executeStepValidatorReasoning,
+      validateSchemaPath: runtime.context.validateStepSchemaPath,
+      thread,
+    });
+
+    thread = ("thread" in execPhase ? execPhase.thread : null) ?? thread;
+
+    if (execPhase.kind === "abort") {
+      return false;
+    }
+
+    if (execPhase.kind === "retry") {
+      additionalContext = execPhase.additionalContext;
+      if (shouldAbortRegression(++regressionAttempts, tracker, runtime.config)) return false;
+      continue;
+    }
+
+    const gate = await runStepQualityGate({
+      auditorName,
+      stepLabel: "final quality gate (pre-commit)",
+      config: runtime.config,
+      cwd: runtime.cwd,
+      onCondenseTestFailure: runtime.condense,
+      maxAttempts: runtime.config.maxValidationRetries,
+      touchedFiles: collectTouchedFiles(execPhase.kind === "proceed" ? execPhase.execution : undefined),
+    });
+
+    if (gate.passed) {
+      tui.logLeft(`[${auditorName}] final quality gate recovered after regression.`, "success");
+      return true;
+    }
+
+    additionalContext = gate.additionalContext || runtime.gateFailureFallback;
+    if (shouldAbortRegression(++regressionAttempts, tracker, runtime.config)) return false;
+  }
 }
 
 async function runRegressionForStep(args: {

@@ -15,9 +15,41 @@ const baseResult = {
 };
 
 describe("execute-step schema", () => {
-  it("accepts minimal valid result", () => {
+  it("accepts valid success result", () => {
     expect(() =>
       validateAgainstSchema(baseResult, executeStepSchema, { schemaName })
+    ).not.toThrow();
+  });
+
+  it("accepts minimal failure result (no patch/files)", () => {
+    const failure = {
+      success: false,
+      summary: "Cannot apply safely.",
+      details: "Cannot apply safely.",
+      filesTouched: [],
+      filesWritten: [],
+      patch: "",
+      mode: "apply",
+    };
+
+    expect(() =>
+      validateAgainstSchema(failure, executeStepSchema, { schemaName })
+    ).not.toThrow();
+  });
+
+  it("accepts success result with empty patch/files (runtime fills file metadata)", () => {
+    const minimalSuccess = {
+      success: true,
+      summary: "Applied.",
+      details: "",
+      filesTouched: [],
+      filesWritten: [],
+      patch: "",
+      mode: "apply",
+    };
+
+    expect(() =>
+      validateAgainstSchema(minimalSuccess, executeStepSchema, { schemaName })
     ).not.toThrow();
   });
 

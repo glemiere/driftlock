@@ -58,7 +58,7 @@ export async function validateStep(options: ValidateStepOptions): Promise<Valida
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
-      sandboxMode: "workspace-write",
+      sandboxMode: "read-only",
       skipGitRepoCheck: true,
     });
 

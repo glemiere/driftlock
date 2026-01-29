@@ -5,10 +5,39 @@ import { computeLayout, visibleRows, clampOffsets } from "./layout";
 import { scheduleRender } from "./render";
 import { state } from "./state";
 import { wrapLine } from "./text";
+import fs from "node:fs";
+import path from "node:path";
 
 export type LogHandle = {
   withSpinner: (name?: Parameters<typeof startSpinner>[0]) => SpinnerHandle;
 };
+
+let leftLogFileStream: fs.WriteStream | null = null;
+
+const ANSI_REGEX = /\u001b\[[0-9;]*[A-Za-z]/g;
+
+export function enableLeftLogFile(filePath: string): void {
+  disableLeftLogFile();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  leftLogFileStream = fs.createWriteStream(filePath, { flags: "w" });
+}
+
+export function disableLeftLogFile(): Promise<void> {
+  if (!leftLogFileStream) return Promise.resolve();
+  const stream = leftLogFileStream;
+  leftLogFileStream = null;
+  return new Promise((resolve) => {
+    stream.end(() => resolve());
+  });
+}
+
+function writeLeftLogFile(message: string): void {
+  if (!leftLogFileStream) return;
+  const lines = String(message ?? "").split(/\r?\n/);
+  for (const line of lines) {
+    leftLogFileStream.write(`${line.replace(ANSI_REGEX, "")}\n`);
+  }
+}
 
 function formatTimestamp(): string {
   return new Date().toISOString().slice(11, 19); // HH:MM:SS
@@ -49,6 +78,10 @@ function push(side: "left" | "right", message: string, colorKey?: keyof typeof C
   const effectiveColor = colorKey ?? (side === "right" ? "right" : undefined);
   const colorPrefix = effectiveColor && COLORS[effectiveColor] ? COLORS[effectiveColor] : "";
   const coloredMessage = colorPrefix ? `${colorPrefix}${message}${RESET}` : message;
+
+  if (side === "left") {
+    writeLeftLogFile(message);
+  }
 
   const mirrorToStdout = () => {
     if (side !== "left") return;

@@ -32,6 +32,14 @@ export type QualityGateStageConfig = {
   run: string;
 };
 
+export type BaselineSanitazorConfig = {
+  enabled: boolean;
+  path: string;
+  model?: string;
+  reasoning?: ReasoningEffort;
+  maxAttempts?: number;
+};
+
 export type PullRequestConfig = {
   enabled: boolean;
   gitHostSaas: GitHostSaas;
@@ -45,6 +53,9 @@ export type DriftlockConfig = {
     plan: FormatterConfig;
     executeStep: FormatterConfig;
   };
+  baselines?: {
+    quality?: BaselineSanitazorConfig;
+  };
   qualityGate: {
     build: QualityGateStageConfig;
     lint: QualityGateStageConfig;
@@ -52,6 +63,7 @@ export type DriftlockConfig = {
     lintAutoFix: string | null;
   };
   runBaselineQualityGate: boolean;
+  finalQualityGateRegression: boolean;
   maxPlanRetries: number;
   maxValidationRetries: number;
   maxRegressionAttempts: number;
@@ -71,6 +83,9 @@ type AuditorConfigOverride = Partial<AuditorConfig>;
 type DriftlockConfigOverrides = {
   auditors?: Record<string, AuditorConfigOverride>;
   validators?: Record<string, ValidatorConfig>;
+  baselines?: {
+    quality?: Partial<BaselineSanitazorConfig>;
+  };
   qualityGate?: Partial<{
     build: Partial<QualityGateStageConfig>;
     lint: Partial<QualityGateStageConfig>;
@@ -87,6 +102,7 @@ type DriftlockConfigOverrides = {
     formatter?: Partial<FormatterConfig>;
   };
   runBaselineQualityGate?: boolean;
+  finalQualityGateRegression?: boolean;
   maxPlanRetries?: number;
   maxValidationRetries?: number;
   maxRegressionAttempts?: number;
@@ -317,6 +333,63 @@ function normalizeDefaultExclude(root: RawConfigObject): string[] {
   return root.exclude.map((item) => path.resolve(PACKAGE_ROOT, item));
 }
 
+function normalizeDefaultBaselines(
+  root: RawConfigObject
+): DriftlockConfig["baselines"] {
+  const raw = root.baselines;
+  if (raw === undefined) return undefined;
+
+  if (!isPlainObject(raw)) {
+    throw new Error('Default config "baselines" must be an object when provided.');
+  }
+
+  const baselinesObj = raw as RawConfigObject;
+  const result: NonNullable<DriftlockConfig["baselines"]> = {};
+
+  if ("quality" in baselinesObj && baselinesObj.quality !== undefined) {
+    const qualityRaw = baselinesObj.quality;
+    if (!isPlainObject(qualityRaw)) {
+      throw new Error('Default config "baselines.quality" must be an object.');
+    }
+
+    const qualityObj = qualityRaw as RawConfigObject;
+    const enabled = qualityObj.enabled;
+    const baselinePath = qualityObj.path;
+
+    if (typeof enabled !== "boolean") {
+      throw new Error('Default config "baselines.quality.enabled" must be a boolean.');
+    }
+    if (typeof baselinePath !== "string") {
+      throw new Error('Default config "baselines.quality.path" must be a string.');
+    }
+
+    const model = qualityObj.model;
+    if (model !== undefined && typeof model !== "string") {
+      throw new Error('Default config "baselines.quality.model" must be a string.');
+    }
+
+    const reasoning = qualityObj.reasoning;
+    if (reasoning !== undefined && typeof reasoning !== "string") {
+      throw new Error('Default config "baselines.quality.reasoning" must be a string.');
+    }
+
+    const maxAttempts = qualityObj.maxAttempts;
+    if (maxAttempts !== undefined && typeof maxAttempts !== "number") {
+      throw new Error('Default config "baselines.quality.maxAttempts" must be a number.');
+    }
+
+    result.quality = {
+      enabled,
+      path: path.resolve(PACKAGE_ROOT, baselinePath),
+      model: typeof model === "string" ? model : undefined,
+      reasoning: typeof reasoning === "string" ? (reasoning as ReasoningEffort) : undefined,
+      maxAttempts: typeof maxAttempts === "number" ? maxAttempts : undefined,
+    };
+  }
+
+  return result;
+}
+
 function normalizeDefaultQualityGate(root: RawConfigObject): DriftlockConfig["qualityGate"] {
   const rawGate = root.qualityGate;
   if (!isPlainObject(rawGate)) {
@@ -378,11 +451,16 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   const validatorsObj = getSectionObject(root, "validators", "Default");
   const formattersObj = getSectionObject(root, "formatters", "Default");
   const exclude = normalizeDefaultExclude(root);
+  const baselines = normalizeDefaultBaselines(root);
   const qualityGate = normalizeDefaultQualityGate(root);
   const pullRequest = normalizeDefaultPullRequest(root);
   const model = typeof root.model === "string" ? root.model : undefined;
   const reasoning = typeof root.reasoning === "string" ? (root.reasoning as ReasoningEffort) : undefined;
   const turnTimeoutMs = typeof root.turnTimeoutMs === "number" ? root.turnTimeoutMs : 0;
+  const finalQualityGateRegression =
+    typeof root.finalQualityGateRegression === "boolean"
+      ? root.finalQualityGateRegression
+      : false;
 
   const auditors = normalizeDefaultAuditors(auditorsObj);
   const validators = normalizeDefaultValidators(validatorsObj);
@@ -391,9 +469,11 @@ function normalizeDefaultConfig(raw: unknown): DriftlockConfig {
   return {
     auditors,
     validators,
+    baselines,
     qualityGate,
     runBaselineQualityGate:
       typeof root.runBaselineQualityGate === "boolean" ? root.runBaselineQualityGate : true,
+    finalQualityGateRegression,
     maxPlanRetries:
       typeof root.maxPlanRetries === "number" ? root.maxPlanRetries : 1,
     maxValidationRetries:
@@ -663,6 +743,67 @@ function buildUserPullRequestOverrides(
   return override;
 }
 
+function buildUserBaselineOverrides(
+  raw: unknown,
+  cwd: string
+): DriftlockConfigOverrides["baselines"] {
+  if (!isPlainObject(raw)) {
+    throw new Error('User config "baselines" must be an object when provided.');
+  }
+
+  const baselinesObj = raw as RawConfigObject;
+  const override: NonNullable<DriftlockConfigOverrides["baselines"]> = {};
+
+  if ("quality" in baselinesObj) {
+    const qualityRaw = baselinesObj.quality;
+    if (qualityRaw !== undefined && !isPlainObject(qualityRaw)) {
+      throw new Error('User config "baselines.quality" must be an object when provided.');
+    }
+
+    const qualityObj = (qualityRaw ?? {}) as RawConfigObject;
+    const partial: Partial<BaselineSanitazorConfig> = {};
+
+    if ("enabled" in qualityObj) {
+      if (typeof qualityObj.enabled !== "boolean") {
+        throw new Error('User config "baselines.quality.enabled" must be a boolean.');
+      }
+      partial.enabled = qualityObj.enabled;
+    }
+
+    if ("path" in qualityObj) {
+      if (typeof qualityObj.path !== "string") {
+        throw new Error('User config "baselines.quality.path" must be a string.');
+      }
+      partial.path = resolveUserConfigPath(cwd, qualityObj.path);
+    }
+
+    if ("model" in qualityObj) {
+      if (qualityObj.model !== undefined && typeof qualityObj.model !== "string") {
+        throw new Error('User config "baselines.quality.model" must be a string.');
+      }
+      partial.model = qualityObj.model as string | undefined;
+    }
+
+    if ("reasoning" in qualityObj) {
+      if (qualityObj.reasoning !== undefined && typeof qualityObj.reasoning !== "string") {
+        throw new Error('User config "baselines.quality.reasoning" must be a string.');
+      }
+      partial.reasoning = qualityObj.reasoning as ReasoningEffort | undefined;
+    }
+
+    if ("maxAttempts" in qualityObj) {
+      if (qualityObj.maxAttempts !== undefined && typeof qualityObj.maxAttempts !== "number") {
+        throw new Error('User config "baselines.quality.maxAttempts" must be a number.');
+      }
+      partial.maxAttempts = qualityObj.maxAttempts as number | undefined;
+    }
+
+    override.quality = partial;
+  }
+
+  return override;
+}
+
 function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverrides {
   validateAgainstSchema(raw, configSchemaJson, {
     allowPartial: true,
@@ -691,6 +832,10 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
 
   if (root.pullRequest !== undefined) {
     overrides.pullRequest = buildUserPullRequestOverrides(root.pullRequest, cwd);
+  }
+
+  if (root.baselines !== undefined) {
+    overrides.baselines = buildUserBaselineOverrides(root.baselines, cwd);
   }
 
   if (root.exclude !== undefined) {
@@ -722,6 +867,15 @@ function normalizeUserConfig(raw: unknown, cwd: string): DriftlockConfigOverride
       );
     }
     overrides.runBaselineQualityGate = root.runBaselineQualityGate;
+  }
+
+  if (root.finalQualityGateRegression !== undefined) {
+    if (typeof root.finalQualityGateRegression !== "boolean") {
+      throw new Error(
+        'User config "finalQualityGateRegression" must be a boolean when provided.'
+      );
+    }
+    overrides.finalQualityGateRegression = root.finalQualityGateRegression;
   }
 
   if (root.qualityGate !== undefined) {
@@ -859,6 +1013,7 @@ export async function loadConfig(): Promise<DriftlockConfig> {
     await ensurePullRequestToolingAvailable(defaultConfig);
     await ensureValidatorPathsExist(defaultConfig);
     await ensureAuditorPathsExist(defaultConfig);
+    await ensureBaselinePathsExist(defaultConfig);
     return defaultConfig;
   }
 
@@ -872,6 +1027,7 @@ export async function loadConfig(): Promise<DriftlockConfig> {
   await ensurePullRequestToolingAvailable(merged);
   await ensureValidatorPathsExist(merged);
   await ensureAuditorPathsExist(merged);
+  await ensureBaselinePathsExist(merged);
 
   return merged;
 }
@@ -926,6 +1082,19 @@ async function ensureAuditorPathsExist(config: DriftlockConfig): Promise<void> {
   });
 
   await Promise.all(checks);
+}
+
+async function ensureBaselinePathsExist(config: DriftlockConfig): Promise<void> {
+  const quality = config.baselines?.quality;
+  if (!quality || !quality.enabled) return;
+
+  try {
+    await fs.access(quality.path, fsConstants.R_OK);
+  } catch {
+    throw new Error(
+      `Baseline sanitazor "quality" path does not exist or is not readable: ${quality.path}`
+    );
+  }
 }
 
 async function ensureValidatorPathsExist(config: DriftlockConfig): Promise<void> {

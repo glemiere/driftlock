@@ -1,5 +1,5 @@
 import { initTui, resize, shutdown } from "./lifecycle";
-import { logLeft, logRight, updateLeft } from "./io";
+import { logLeft, logRight, updateLeft, enableLeftLogFile, disableLeftLogFile } from "./io";
 import { render as tuiRender } from "./render";
 import { initBorders, startRainbowBorder } from "./border";
 import {
@@ -16,6 +16,8 @@ export const tui = {
   logLeft,
   logRight,
   updateLeft,
+  enableDebugLogFile: enableLeftLogFile,
+  disableDebugLogFile: disableLeftLogFile,
   setHeaderInfo,
   setFooterInfo,
   setTitle,

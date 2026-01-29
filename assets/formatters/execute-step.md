@@ -29,11 +29,8 @@
   <output schema="assets/schemas/execute-step.schema.json">
     <format>Return exactly one JSON object; no prose outside JSON.</format>
     <required_fields>
-      success (boolean), summary (string), mode ("apply" | "fix_regression")
+      success (boolean), summary (string), details (string), filesTouched (string[]), filesWritten (string[]), patch (string), mode ("apply" | "fix_regression")
     </required_fields>
-    <optional_fields>
-      details (string), filesTouched (string[]), filesWritten (string[]), patch (string)
-    </optional_fields>
   </output>
 
   <hard_constraints>
@@ -43,12 +40,12 @@
     <constraint>In MODE: fix_regression, keep changes minimal and targeted to the reported failures; you may modify any non-excluded files required to resolve the regression.</constraint>
     <constraint>Respect excluded paths absolutely: never read, write, or mention excluded files in patch/filesTouched/filesWritten.</constraint>
     <constraint>Prefer the smallest possible patch that fully implements the step or fixes the regression.</constraint>
-    <constraint>Patch MUST be a unified diff with repo-relative paths; include only required hunks.</constraint>
+    <constraint>If patch is non-empty, it MUST be a unified diff with repo-relative paths and include only required hunks. If you are omitting patch content, set patch to an empty string.</constraint>
     <constraint>Do not assume helpers/imports that do not exist in the touched files; do not invent utilities.</constraint>
     <constraint>Do not reformat unrelated code; do not reorder imports unless required for correctness.</constraint>
     <constraint>Avoid >5 hunks per file unless required for correctness.</constraint>
-    <constraint>When success=true: patch must be present and non-empty; filesWritten must be non-empty; filesTouched must include all filesWritten.</constraint>
-    <constraint>Do not claim success if no files were changed on disk; if the step is already satisfied, return success=false with a summary starting "Already satisfied" and no patch.</constraint>
+    <constraint>When success=true: you may leave filesTouched/filesWritten empty (Driftlock will fill them from git). If you provide non-empty lists, filesTouched must include all filesWritten.</constraint>
+    <constraint>Do not claim success if no files were changed on disk; if the step is already satisfied, return success=false with a summary starting "Already satisfied" and set patch="" and filesTouched/filesWritten to [].</constraint>
     <constraint>Never emit a patch that describes hypothetical edits; ensure the workspace actually reflects the patch.</constraint>
     <constraint>Never claim to have run commands you did not run; if a required command fails, return success=false and summarize the failure.</constraint>
     <constraint>When success=false: do not emit partial patches; explain the blocking reason in summary (details optional).</constraint>

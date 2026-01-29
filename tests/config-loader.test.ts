@@ -49,8 +49,6 @@ describe("config-loader", () => {
     expect(path.isAbsolute(config.formatters.executeStep.path)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.schema)).toBe(true);
     expect(path.isAbsolute(config.formatters.executeStep.fixRegressionPath as string)).toBe(true);
-    expect(path.isAbsolute(config.formatters.testFailureSummary.path)).toBe(true);
-    expect(path.isAbsolute(config.formatters.testFailureSummary.schema)).toBe(true);
     expect(Array.isArray(config.exclude)).toBe(true);
     expect(typeof config.qualityGate.build.run).toBe("string");
     expect(typeof config.qualityGate.lint.run).toBe("string");
@@ -69,6 +67,10 @@ describe("config-loader", () => {
     expect(typeof config.maxRegressionAttempts).toBe("number");
     expect(typeof config.maxThreadLifetimeAttempts).toBe("number");
     expect(typeof config.turnTimeoutMs).toBe("number");
+    expect(typeof config.finalQualityGateRegression).toBe("boolean");
+    if (config.baselines?.quality?.enabled) {
+      expect(path.isAbsolute(config.baselines.quality.path)).toBe(true);
+    }
   });
 
   it("loads successfully when driftlock.config.json is a copy of config.default.json", async () => {

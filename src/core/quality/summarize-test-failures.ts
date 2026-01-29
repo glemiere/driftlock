@@ -64,7 +64,7 @@ export async function summarizeTestFailures(options: {
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
-      sandboxMode: "workspace-write",
+      sandboxMode: "read-only",
       skipGitRepoCheck: true,
       additionalDirectories: [tmpDir],
     });

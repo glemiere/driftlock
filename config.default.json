@@ -9,6 +9,16 @@
     "lintAutoFix": null
   },
   "runBaselineQualityGate": true,
+  "baselines": {
+    "quality": {
+      "enabled": true,
+      "path": "./assets/baselines/quality.md",
+      "model": "gpt-5.2-codex",
+      "reasoning": "low",
+      "maxAttempts": 3
+    }
+  },
+  "finalQualityGateRegression": true,
   "maxPlanRetries": 3,
   "maxValidationRetries": 2,
   "maxRegressionAttempts": 5,
@@ -28,65 +38,47 @@
     "complexity": {
       "enabled": true,
       "path": "./assets/auditors/complexity.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "consistency": {
       "enabled": true,
       "path": "./assets/auditors/consistency.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "dependency": {
       "enabled": false,
       "path": "./assets/auditors/dependency.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "documentation": {
       "enabled": false,
       "path": "./assets/auditors/documentation.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "modularity": {
       "enabled": true,
       "path": "./assets/auditors/modularity.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "performance": {
       "enabled": true,
       "path": "./assets/auditors/performance.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "quality": {
       "enabled": true,
       "path": "./assets/auditors/quality.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "reliability": {
       "enabled": true,
       "path": "./assets/auditors/reliability.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     },
     "security": {
       "enabled": true,
       "path": "./assets/auditors/security.md",
-      "validators": ["plan"],
-      "model": "gpt-5.2",
-      "reasoning": "medium"
+      "validators": ["plan"]
     }
   },
   "validators": {

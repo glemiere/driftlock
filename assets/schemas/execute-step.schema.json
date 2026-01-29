@@ -16,8 +16,7 @@
     },
     "details": {
       "type": "string",
-      "description": "Optional extended details about the execution.",
-      "minLength": 1
+      "description": "Extended details about the execution."
     },
     "filesTouched": {
       "type": "array",
@@ -37,8 +36,7 @@
     },
     "patch": {
       "type": "string",
-      "description": "Unified diff patch representing the changes for this step.",
-      "minLength": 1
+      "description": "Unified diff patch representing the changes for this step (may be empty when omitted)."
     },
     "mode": {
       "type": "string",
@@ -46,13 +44,5 @@
       "enum": ["apply", "fix_regression"]
     }
   },
-  "required": [
-    "success",
-    "summary",
-    "mode",
-    "details",
-    "filesTouched",
-    "filesWritten",
-    "patch"
-  ]
+  "required": ["success", "summary", "details", "filesTouched", "filesWritten", "patch", "mode"]
 }

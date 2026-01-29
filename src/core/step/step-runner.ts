@@ -73,9 +73,15 @@ function failStepDueToThreadLimit(auditorName: string, stepText: string): StepPh
   return { kind: "abort" };
 }
 
-function formatStepText(stepText: string, additionalContext: string): string {
+function formatStepText(
+  stepText: string,
+  additionalContext: string,
+  mode: "apply" | "fix_regression"
+): string {
   if (!additionalContext) return stepText;
-  return `${stepText}\n\nContext:\n<untrusted_context trust="untrusted">\n${additionalContext}\n</untrusted_context>`;
+  const tagName = mode === "fix_regression" ? "failure_summary" : "quality_summary";
+  const label = mode === "fix_regression" ? "Failure Summary" : "Quality Summary";
+  return `${stepText}\n\n${label}:\n<${tagName} trust="untrusted">\n${additionalContext}\n</${tagName}>`;
 }
 
 function handleExecutorFailure(
@@ -176,7 +182,7 @@ async function runExecutor(args: {
   } = args;
 
   const { result, thread: usedThread } = await executePlanStep({
-    stepText: formatStepText(stepText, additionalContext),
+    stepText: formatStepText(stepText, additionalContext, mode),
     mode,
     model,
     reasoning,
@@ -200,7 +206,7 @@ async function runExecutor(args: {
     return { kind: "abort", thread: usedThread ?? thread };
   }
 
-  if (!result.success || !result.patch) {
+  if (!result.success) {
     const failure = handleExecutorFailure(result, auditorName, mode);
     failure.thread = usedThread ?? thread;
     return failure;
@@ -388,12 +394,21 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
         `[${auditorName}] workspace changes include excluded paths: ${partitioned.excluded.join(
           ", "
         )}`,
-        "warn"
+        "error"
       );
+      return { kind: "abort", thread: execution.thread ?? thread };
     }
   }
 
   if (execution.kind === "proceed") {
+    if (!workspaceChangedFiles) {
+      tui.logLeft(
+        `[${auditorName}] executor reported success but git status is unavailable; aborting step: ${stepText}`,
+        "warn"
+      );
+      return { kind: "abort", thread: execution.thread ?? null };
+    }
+
     if (isNothingToChangeSummary(execution.execution.summary)) {
       const threadRef = execution.thread ?? null;
       if (!workspaceChangedFiles) {
@@ -458,6 +473,19 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
     return execution;
   }
 
+  if (workspaceChangedFiles && workspaceChangedFiles.length === 0) {
+    tui.logLeft(
+      `[${auditorName}] executor reported success but git detected no file changes for step: ${stepText}`,
+      "warn"
+    );
+    return { kind: "abort", thread: execution.thread ?? null };
+  }
+
+  if (workspaceChangedFiles && workspaceChangedFiles.length > 0) {
+    execution.execution.filesTouched = workspaceChangedFiles;
+    execution.execution.filesWritten = workspaceChangedFiles;
+  }
+
   const validation = await runExecuteStepValidator({
     auditorName,
     mode,
@@ -474,19 +502,6 @@ export async function executeStepPhase(args: ExecuteStepPhaseArgs): Promise<Step
   });
   if (validation.kind !== "proceed") {
     return validation;
-  }
-
-  if (workspaceChangedFiles) {
-    if (workspaceChangedFiles.length === 0) {
-      tui.logLeft(
-        `[${auditorName}] executor reported success but git detected no file changes for step: ${stepText}`,
-        "warn"
-      );
-      return { kind: "abort", thread: execution.thread ?? null };
-    }
-
-    execution.execution.filesTouched = workspaceChangedFiles;
-    execution.execution.filesWritten = workspaceChangedFiles;
   }
 
   return createExecutionResult(

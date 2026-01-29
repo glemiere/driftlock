@@ -6,7 +6,15 @@
   "bin": {
     "driftlock": "dist/cli/index.js"
   },
-  "repository": "git@github.com:glemiere/driftlock.git",
+  "files": [
+    "dist/**",
+    "assets/**",
+    "config.default.json"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/glemiere/driftlock.git"
+  },
   "author": "Will Le Miere <will@lemiere.io>",
   "license": "MIT",
   "scripts": {
@@ -15,7 +23,7 @@
     "local-install": "command -v driftlock >/dev/null 2>&1 || npm link",
     "local-uninstall": "npm uninstall -g driftlock || true",
     "dev": "npm run local-install && npm run build:watch",
-    "test": "NX_DAEMON=false NX_NATIVE_LOG_PLUGIN=false NX_ADD_PLUGINS=false nx test driftlock --runInBand -- --verbose",
+    "test": "NX_DAEMON=false NX_ISOLATE_PLUGINS=false NX_NATIVE_LOG_PLUGIN=false NX_ADD_PLUGINS=false nx test driftlock --runInBand -- --verbose",
     "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },

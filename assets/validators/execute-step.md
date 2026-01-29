@@ -35,7 +35,7 @@
       In mode=apply, reject when executor touches files unrelated to the step intent.
     </rule>
     <rule id="missing_patch_or_files_on_success">
-      When success=true, reject if patch is missing/empty, filesWritten is missing/empty, or filesTouched is missing or does not include all filesWritten.
+      When success=true, reject if filesWritten is missing/empty, or filesTouched is missing or does not include all filesWritten. Patch may be omitted.
     </rule>
     <rule id="filesWritten_present_on_failure">
       When success=false, reject if filesWritten is non-empty; summary must explain the failure.

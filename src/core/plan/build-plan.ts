@@ -143,7 +143,7 @@ async function startPlanThread(
     model,
     modelReasoningEffort: reasoning,
     workingDirectory,
-    sandboxMode: "workspace-write",
+    sandboxMode: "read-only",
     skipGitRepoCheck: true,
   });
 }

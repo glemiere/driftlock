@@ -51,6 +51,7 @@
     </required_fields>
     <steps_contract>
       <rule>steps is an array of 1..N atomic, concrete, self-contained instructions.</rule>
+      <rule>Prefer exactly 1 step per plan item; merge related edits into a single multi-file step to avoid repeated build/lint/test cycles.</rule>
       <rule>Each step includes file paths and the exact change to make.</rule>
       <rule>Each step can run independently without relying on previous steps or hidden state.</rule>
     </steps_contract>

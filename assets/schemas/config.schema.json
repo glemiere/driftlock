@@ -80,9 +80,21 @@
         }
       }
     },
+    "baselines": {
+      "type": "object",
+      "description": "Baseline sanitazor configuration (used only when the initial baseline quality gate fails).",
+      "additionalProperties": false,
+      "properties": {
+        "quality": { "$ref": "#/$defs/baselineConfig" }
+      }
+    },
     "runBaselineQualityGate": {
       "type": "boolean",
       "description": "Whether to run a full build/lint/test cycle once before any auditors execute."
+    },
+    "finalQualityGateRegression": {
+      "type": "boolean",
+      "description": "Whether to attempt a fix_regression loop when the final pre-commit quality gate fails (instead of rolling back immediately)."
     },
     "maxPlanRetries": {
       "type": "integer",
@@ -206,6 +218,35 @@
         "run": { "type": "string" }
       },
       "required": ["enabled", "run"]
+    },
+    "baselineConfig": {
+      "type": "object",
+      "description": "Configuration for a baseline sanitazor.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether to attempt baseline repair when the baseline quality gate fails."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the baseline sanitazor prompt."
+        },
+        "model": {
+          "type": "string",
+          "description": "Optional model override for this baseline sanitazor."
+        },
+        "reasoning": {
+          "$ref": "#/$defs/reasoningEffort",
+          "description": "Optional reasoning effort override for this baseline sanitazor."
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum number of baseline repair attempts (0 means unbounded)."
+        }
+      },
+      "required": ["enabled", "path"]
     }
   }
 }

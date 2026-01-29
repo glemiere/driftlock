@@ -20,6 +20,10 @@ program
     "[auditors]",
     "comma-separated list of auditors (e.g. complexity,security)"
   )
+  .option(
+    "--debug",
+    "write Driftlock left-pane logs to a local output file (ignored by git)"
+  )
   .action(runAuditCommand);
 
 program

@@ -154,7 +154,7 @@ async function runValidator(args: RunValidatorArgs): Promise<ValidatePlanResult>
       model,
       modelReasoningEffort: normalizeModelReasoningEffort(model, reasoning),
       workingDirectory,
-      sandboxMode: "workspace-write",
+      sandboxMode: "read-only",
       skipGitRepoCheck: true,
     });
 

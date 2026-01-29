@@ -12,10 +12,6 @@ describe("config schema", () => {
       path: "./formatters/execute-step.md",
       schema: "./schemas/execute-step.schema.json",
     },
-    testFailureSummary: {
-      path: "./sanitazors/quality-tests.md",
-      schema: "./schemas/test-failure-summary.schema.json",
-    },
   };
 
   it("accepts default config", () => {
